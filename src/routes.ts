@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type { Config } from './config.js'
 import type { DeviceStore } from './devices.js'
 import type { HostContext } from './host.js'
@@ -69,11 +71,10 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     auth: 'public',
     handler: async (rc) => {
       if (!adminAuthorized(deps, rc)) {
-        sendHtml(rc.res, 401, adminDeniedPage(config.basePath))
+        sendHtml(rc.res, 401, adminDeniedHtml(rc, config.basePath))
         return
       }
-      const data = await adminData(deps)
-      sendHtml(rc.res, 200, adminPage(data, config.basePath))
+      sendHtml(rc.res, 200, adminHtml(rc))
     },
   })
 
@@ -774,95 +775,41 @@ function sendHtml(res: RouteContext['res'], status: number, html: string): void 
   res.end(html)
 }
 
-function adminDeniedPage(basePath: string): string {
-  return `<!doctype html><meta charset="utf-8"><title>dsh-door pairing</title>
-<body style="background:#0b0e14;color:#e8edf7;font:16px system-ui;padding:48px;line-height:1.6">
-<h1>需要 dsh 浏览器登录</h1>
-<p>这个页面只对已经登录 dsh Web UI 的浏览器开放。</p>
-<p>请先在同一个浏览器里打开 <a style="color:#6ea8fe" href="/">dsh Web UI</a> 完成登录，然后回到
-<a style="color:#6ea8fe" href="${escapeHtml(basePath)}/admin">${escapeHtml(basePath)}/admin</a>。</p>
-<p style="color:#9aa7bd">也可以直接在服务器终端查看配对码：<code>journalctl -u dsh -f | grep dsh-door</code></p>
-</body>`
+const webTemplateCache = new Map<string, string>()
+
+/** Read a build-time React template from lib/web and cache it. */
+function webTemplate(name: string): string {
+  const cached = webTemplateCache.get(name)
+  if (cached !== undefined) return cached
+  const filename = fileURLToPath(new URL(`../lib/web/${name}`, import.meta.url))
+  let html: string
+  try {
+    html = readFileSync(filename, 'utf8')
+  } catch (error) {
+    throw new Error(
+      `dsh-door: missing admin template ${filename}. Run "npm run build:web" before starting the plugin.`,
+      { cause: error },
+    )
+  }
+  webTemplateCache.set(name, html)
+  return html
 }
 
-function adminPage(_data: unknown, basePath: string): string {
-  const base = escapeHtml(basePath)
-  const baseJson = JSON.stringify(basePath).replace(/</g, '\\u003c')
-  return `<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>dsh-door 配对</title>
-<style>
-:root{color-scheme:dark}
-body{background:#0b0e14;color:#e8edf7;font:15px/1.5 system-ui,-apple-system,sans-serif;margin:0;padding:32px}
-main{max-width:720px;margin:auto;display:grid;gap:18px}
-.card{background:#121826;border:1px solid #243049;border-radius:14px;padding:20px}
-h1{font-size:24px;margin:0 0 6px} h2{font-size:16px;margin:0 0 12px}
-.muted{color:#9aa7bd;font-size:13px}
-.code{font:700 40px ui-monospace,monospace;letter-spacing:8px;text-align:center;color:#6ea8fe;padding:18px 0}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-button{background:#3d7bfd;color:#fff;border:0;border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer}
-button.secondary{background:#0f1420;color:#e8edf7;border:1px solid #243049}
-button.danger{background:#3a1720;color:#f87171;border:1px solid #f87171}
-input{background:#0f1420;border:1px solid #243049;color:#e8edf7;border-radius:9px;padding:10px;font:15px ui-monospace,monospace;min-width:220px}
-pre{background:#0a0d13;border:1px solid #1a2234;border-radius:9px;padding:12px;overflow:auto;color:#9aa7bd;font-size:10px;line-height:1}
-.warn{color:#fbbf24}.ok{color:#4ade80}.bad{color:#f87171}
-table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 0;border-bottom:1px solid #1a2234;color:#9aa7bd}
-</style></head><body><main>
-<div><h1>dsh-door 配对</h1><div class="muted">已通过 dsh 浏览器登录校验 · <span id="mode"></span></div></div>
-<div class="card">
-  <h2>当前配对码</h2>
-  <div class="code" id="code">…</div>
-  <div class="muted" id="expiry"></div>
-  <div class="row" style="margin-top:14px">
-    <button onclick="act('rotate')">生成新的一次性码</button>
-    <button class="secondary" onclick="act('auto')">恢复一次性码</button>
-  </div>
-</div>
-<div class="card">
-  <h2>固定配对码</h2>
-  <div class="muted">固定码会一直有效，直到你在下面恢复一次性码；只建议在可信网络使用。</div>
-  <div class="row" style="margin-top:12px">
-    <input id="fixedInput" placeholder="例如 ABCD-EFGH" autocomplete="off">
-    <button class="danger" onclick="setFixed()">设为固定码</button>
-  </div>
-</div>
-<div class="card"><h2>扫码/输入</h2><pre id="qr">二维码加载中…</pre>
-  <div class="muted">App 目前使用数字码；二维码内容为 <code>{"v":1,"url":…,"code":…}</code>。</div>
-</div>
-<div class="card"><h2>已配对设备</h2><table><thead><tr><th>设备</th><th>配对时间</th><th>最近连接</th></tr></thead><tbody id="devices"></tbody></table></div>
-<div class="muted">配对码默认 5 分钟有效。固定码会写入 dsh 凭据存储，重启后仍然有效。</div>
-</main>
-<script>
-const BASE=${baseJson};
-let timer;
-async function refresh(){
-  const r=await fetch(BASE+'/admin/data',{credentials:'include',cache:'no-store'});
-  if(!r.ok){document.getElementById('code').textContent='登录已失效，请刷新 dsh Web UI';return}
-  const d=await r.json();
-  document.getElementById('code').textContent=d.formatted;
-  document.getElementById('mode').innerHTML=d.fixed?'<span class="warn">固定码</span>':'<span class="ok">一次性码</span>';
-  document.getElementById('expiry').textContent=d.fixed?'固定码长期有效，直到你手动恢复一次性码':('过期时间：'+new Date(d.expiresAt).toLocaleString());
-  document.getElementById('qr').textContent=d.qr||'（二维码生成失败，使用上面的数字码）';
-  document.getElementById('devices').innerHTML=(d.devices||[]).map(x=>'<tr><td>'+esc(x.deviceName)+'<br><span class="muted">'+esc(x.platform||'')+' '+esc(x.deviceId.slice(0,12))+'…</span></td><td>'+new Date(x.pairedAt).toLocaleString()+'</td><td>'+new Date(x.lastSeenAt).toLocaleString()+'</td></tr>').join('')||'<tr><td colspan="3" class="muted">还没有设备</td></tr>';
-  clearTimeout(timer); timer=setTimeout(refresh,5000);
+function adminLocale(rc: RouteContext): 'zh' | 'en' {
+  const query = rc.query.get('lang')
+  if (query === 'zh' || query === 'en') return query
+  const header = rc.req.headers['accept-language']
+  const value = Array.isArray(header) ? header.join(',') : header ?? ''
+  return /(^|,)\s*zh\b/i.test(value) ? 'zh' : 'en'
 }
-function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-async function act(action){
-  const r=await fetch(BASE+'/admin/pair-code',{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({action})});
-  if(!r.ok){alert((await r.json()).error?.message||'操作失败');return}
-  await refresh();
+
+function adminHtml(rc: RouteContext): string {
+  return webTemplate(`admin.${adminLocale(rc)}.html`)
 }
-async function setFixed(){
-  const code=document.getElementById('fixedInput').value.trim();
-  if(!code){alert('请输入固定码');return}
-  if(!confirm('固定码会一直有效，确定设置？'))return;
-  const r=await fetch(BASE+'/admin/pair-code',{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({action:'fixed',code})});
-  if(!r.ok){alert((await r.json()).error?.message||'操作失败');return}
-  document.getElementById('fixedInput').value='';
-  await refresh();
-}
-refresh();
-</script></body></html>`
+
+function adminDeniedHtml(rc: RouteContext, basePath: string): string {
+  return webTemplate(`admin-denied.${adminLocale(rc)}.html`)
+    .replaceAll('__ADMIN_PATH__', escapeHtml(`${basePath}/admin`))
 }
 
 function escapeHtml(value: string): string {

@@ -127,17 +127,35 @@ The page shows:
 - buttons to generate a new one-time code, set a **fixed code**, or restore
   one-time rotation.
 
-The same page is linked from dsh's plugin manager: open **Plugins**, select
-**dsh-door**, and use **配对管理 / Pairing admin** in the page header (or the
-"手机配对 / Phone pairing" section below the component list). The link is
-contributed by the package's small browser half (`client/client.js`) through the
-`plugins.detail.actions` and `plugins.detail.section` slots, and it follows the
-configured `basePath`.
+There are two admin surfaces, both backed by the same cookie-authenticated
+`/admin/data` and `/admin/pair-code` endpoints:
+
+- **Standalone page** at `${basePath}/admin` — the URL above. It is rendered
+  from `web/` at build time into `lib/web/admin.<locale>.html`; the shipped
+  page is plain HTML/CSS plus a small inline script, with no React or vendor
+  bundle.
+- **In-UI page** at **Settings → dsh-door** — contributed by
+  `client/client.js` through the `settings.section` slot. It uses dsh's React
+  runtime, `ctx.locale` dictionaries, and the same JSON API, so it follows the
+  Web UI theme and language.
+
+The plugin manager's **dsh-door** page also has an **Open standalone page**
+action, plus a one-line pointer under the component list.
 
 The browser half is part of the page's boot manifest, so after installing or
 updating the plugin, restart `dsh web` and reload the Web UI (a hard refresh,
 not just the settings tab). An already-open tab keeps the old module graph and
 will not show the link.
+
+### Building the admin page
+
+`web/` is a development-only React project. `npm run build:web` renders
+`lib/web/admin.{zh,en}.html` and `lib/web/admin-denied.{zh,en}.html` with
+`renderToStaticMarkup`; `npm run build` (and therefore `prepare`) runs it.
+React and ReactDOM are devDependencies and are not part of the published
+runtime. To add a locale, add its dictionary in `web/src/i18n.ts` and its id to
+the `locales` array in `web/render.tsx`; the Host picks it from `?lang=` or
+`Accept-Language`.
 
 Fixed codes are normalized (letters/digits, 4–32 chars, dashes ignored) and
 persisted in the dsh credential store under `dsh-door/pairing`. They remain

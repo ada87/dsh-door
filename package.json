@@ -1,6 +1,6 @@
 {
   "name": "dsh-door",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "dsh-door: mobile BFF plugin for DeepSeek Harness - pairing, session reads, live events, approvals and questions over plain HTTP + SSE.",
   "type": "module",
   "main": "lib/index.js",
@@ -47,9 +47,12 @@
     "dsh": ">=0.2.1-rc.4 <0.3.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node build.mjs",
+    "build": "tsc -p tsconfig.json && node build.mjs && npm run build:web",
+    "build:web": "tsx --tsconfig web/tsconfig.json web/render.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:web": "tsc -p web/tsconfig.json --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "pretest": "npm run build:web",
     "pack:local": "pnpm pack",
     "prepare": "npm run build"
   },
@@ -64,8 +67,12 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/qrcode-terminal": "^0.12.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/semver": "^7.7.1",
     "esbuild": "^0.28.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
