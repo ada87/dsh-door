@@ -13,6 +13,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-door',
   factory(require) {
     const React = require('react')
+    const { Button, Input, Tag } = require('@deepseek-ai/dsh-client-ui-primitives')
     const h = React.createElement
 
     const NS = 'dshDoorAdmin'
@@ -23,22 +24,24 @@ window.__ModuleLoader__.load({
       : '/dsh-door'
 
     const styles = `
-.dd-page{display:grid;gap:14px;max-width:760px}
-.dd-title{font-size:20px;margin:0}
-.dd-muted{opacity:.65;font-size:13px;line-height:1.5;margin:0}
-.dd-card{border:1px solid color-mix(in srgb, currentColor 14%, transparent);border-radius:12px;padding:16px;display:grid;gap:10px;background:color-mix(in srgb, currentColor 3%, transparent)}
-.dd-code{font:700 32px ui-monospace,monospace;letter-spacing:6px;text-align:center;color:var(--dsw-alias-brand-primary,#3d7bfd);padding:10px 0}
-.dd-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.dd-row button{border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;background:var(--dsw-alias-brand-primary,#3d7bfd);color:#fff}
-.dd-row button.secondary{background:transparent;color:inherit;border:1px solid color-mix(in srgb, currentColor 20%, transparent)}
-.dd-row button.danger{background:transparent;color:#f87171;border:1px solid #f87171}
-.dd-row button:disabled{opacity:.5;cursor:default}
-.dd-row input{border:1px solid color-mix(in srgb, currentColor 20%, transparent);border-radius:8px;padding:8px 10px;background:transparent;color:inherit;font:14px ui-monospace,monospace;min-width:200px}
-.dd-qr{font-size:10px;line-height:1;overflow:auto;border:1px solid color-mix(in srgb, currentColor 12%, transparent);border-radius:8px;padding:10px;margin:0}
+.dd-page{display:flex;flex-direction:column;width:100%;gap:0}
+.dd-head{padding:0 0 18px}
+.dd-title{font-size:18px;font-weight:600;margin:0 0 4px;color:var(--dsw-alias-label-primary)}
+.dd-desc{margin:0;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}
+.dd-row{display:flex;gap:24px;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.22))}
+.dd-row:last-child{border-bottom:none}
+.dd-rowText{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dd-label{font-size:14px;color:var(--dsw-alias-label-primary)}
+.dd-control{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.dd-block{display:flex;flex-direction:column;gap:8px;padding:16px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.22))}
+.dd-code{font:600 20px ui-monospace,monospace;letter-spacing:3px;color:var(--dsw-alias-brand-primary,#3d7bfd)}
+.dd-qr{font-size:10px;line-height:1;overflow:auto;margin:0;color:var(--dsw-alias-label-secondary);max-height:220px}
 .dd-table{width:100%;border-collapse:collapse;font-size:13px}
-.dd-table th,.dd-table td{text-align:left;padding:6px 0;border-bottom:1px solid color-mix(in srgb, currentColor 10%, transparent)}
-.dd-error{color:#f87171;font-size:13px;margin:0}
-.dd-link{color:var(--dsw-alias-brand-primary,#3d7bfd)}
+.dd-table th,.dd-table td{text-align:left;padding:8px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.18));color:var(--dsw-alias-label-secondary)}
+.dd-table th{font-weight:500;color:var(--dsw-alias-label-tertiary)}
+.dd-error{color:var(--dsw-alias-state-error-primary,#f87171);font-size:13px;margin:0}
+.dd-link{color:var(--dsw-alias-link,var(--dsw-alias-brand-primary,#3d7bfd))}
+.dd-input{width:180px}
 `
 
     const zh = {
@@ -46,7 +49,9 @@ window.__ModuleLoader__.load({
       title: 'dsh-door 配对',
       authed: '已通过 dsh 浏览器登录校验',
       currentCode: '当前配对码',
+      rotation: '码的轮换',
       rotate: '生成新的一次性码',
+      rotateHint: '生成新的一次性码，或恢复一次性轮换。',
       restore: '恢复一次性码',
       fixedCode: '固定配对码',
       fixedHint: '固定码会一直有效，直到你恢复一次性码；只建议在可信网络使用。',
@@ -76,7 +81,9 @@ window.__ModuleLoader__.load({
       title: 'dsh-door pairing',
       authed: 'Authenticated with the dsh browser session',
       currentCode: 'Current pairing code',
+      rotation: 'Code rotation',
       rotate: 'Generate a new one-time code',
+      rotateHint: 'Generate a fresh one-time code, or restore one-time rotation.',
       restore: 'Restore one-time rotation',
       fixedCode: 'Fixed pairing code',
       fixedHint: 'A fixed code stays valid until you restore one-time rotation. Use it only on a trusted network.',
@@ -209,42 +216,60 @@ window.__ModuleLoader__.load({
               : ''
 
           return h('section', { className: 'dd-page' },
-            h('h2', { className: 'dd-title' }, t('title')),
-            h('p', { className: 'dd-muted' }, t('authed')),
+            h('header', { className: 'dd-head' },
+              h('h2', { className: 'dd-title' }, t('title')),
+              h('p', { className: 'dd-desc' }, t('authed')),
+            ),
             error === null ? null : h('p', { className: 'dd-error' }, error),
 
-            h('div', { className: 'dd-card' },
-              h('h3', { className: 'dd-title' }, t('currentCode')),
-              h('div', { className: 'dd-code' }, data?.formatted ?? '…'),
-              h('p', { className: 'dd-muted' }, expiry),
-              h('div', { className: 'dd-row' },
-                h('button', { type: 'button', disabled: busy, onClick: () => { void act('rotate') } }, t('rotate')),
-                h('button', { type: 'button', className: 'secondary', disabled: busy, onClick: () => { void act('auto') } }, t('restore')),
+            h('div', { className: 'dd-row' },
+              h('div', { className: 'dd-rowText' },
+                h('span', { className: 'dd-label' }, t('currentCode')),
+                h('span', { className: 'dd-desc' }, expiry),
+              ),
+              h('div', { className: 'dd-control' },
+                h('span', { className: 'dd-code' }, data?.formatted ?? '…'),
+                h(Tag, { tone: data?.fixed ? 'warning' : 'success' },
+                  data?.fixed ? t('fixedMode') : t('oneTimeMode')),
               ),
             ),
 
-            h('div', { className: 'dd-card' },
-              h('h3', { className: 'dd-title' }, t('fixedCode')),
-              h('p', { className: 'dd-muted' }, t('fixedHint')),
-              h('div', { className: 'dd-row' },
-                h('input', {
+            h('div', { className: 'dd-row' },
+              h('div', { className: 'dd-rowText' },
+                h('span', { className: 'dd-label' }, t('rotation')),
+                h('span', { className: 'dd-desc' }, t('rotateHint')),
+              ),
+              h('div', { className: 'dd-control' },
+                h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: () => { void act('rotate') } }, t('rotate')),
+                h(Button, { variant: 'outline', size: 'sm', disabled: busy, onClick: () => { void act('auto') } }, t('restore')),
+              ),
+            ),
+
+            h('div', { className: 'dd-row' },
+              h('div', { className: 'dd-rowText' },
+                h('span', { className: 'dd-label' }, t('fixedCode')),
+                h('span', { className: 'dd-desc' }, t('fixedHint')),
+              ),
+              h('div', { className: 'dd-control' },
+                h(Input, {
+                  className: 'dd-input',
                   value: fixedCode,
                   placeholder: t('fixedPlaceholder'),
                   autoComplete: 'off',
                   onChange: event => setFixedCode(event.target.value),
                 }),
-                h('button', { type: 'button', className: 'danger', disabled: busy, onClick: () => { void setFixed() } }, t('setFixed')),
+                h(Button, { variant: 'outline', size: 'sm', disabled: busy, onClick: () => { void setFixed() } }, t('setFixed')),
               ),
             ),
 
-            h('div', { className: 'dd-card' },
-              h('h3', { className: 'dd-title' }, t('qrTitle')),
+            h('div', { className: 'dd-block' },
+              h('span', { className: 'dd-label' }, t('qrTitle')),
               h('pre', { className: 'dd-qr' }, data?.qr || t('qrLoading')),
-              h('p', { className: 'dd-muted' }, t('qrHint'), ' ', h('code', null, '{"v":1,"url":…,"code":…}')),
+              h('span', { className: 'dd-desc' }, t('qrHint'), ' ', h('code', null, '{"v":1,"url":…,"code":…}')),
             ),
 
-            h('div', { className: 'dd-card' },
-              h('h3', { className: 'dd-title' }, t('devices')),
+            h('div', { className: 'dd-block' },
+              h('span', { className: 'dd-label' }, t('devices')),
               h('table', { className: 'dd-table' },
                 h('thead', null,
                   h('tr', null,
@@ -255,12 +280,12 @@ window.__ModuleLoader__.load({
                 ),
                 h('tbody', null,
                   devices.length === 0
-                    ? h('tr', null, h('td', { colSpan: 3, className: 'dd-muted' }, t('noDevices')))
+                    ? h('tr', null, h('td', { colSpan: 3, className: 'dd-desc' }, t('noDevices')))
                     : devices.map(device => h('tr', { key: String(device.deviceId) },
                       h('td', null,
                         device.deviceName || '—',
                         h('br'),
-                        h('span', { className: 'dd-muted' },
+                        h('span', { className: 'dd-desc' },
                           `${device.platform || ''} ${String(device.deviceId || '').slice(0, 12)}…`),
                       ),
                       h('td', null, new Date(device.pairedAt).toLocaleString()),
@@ -270,7 +295,7 @@ window.__ModuleLoader__.load({
               ),
             ),
 
-            h('p', { className: 'dd-muted' }, t('footer')),
+            h('p', { className: 'dd-desc' }, t('footer')),
           )
         }
 
@@ -322,7 +347,7 @@ window.__ModuleLoader__.load({
           order: 100,
         }, ({ subject }) => isDoor(subject)
           ? h('section', { className: 'dd-page' },
-            h('p', { className: 'dd-muted' }, t('detailHint')))
+            h('p', { className: 'dd-desc' }, t('detailHint')))
           : null))
       },
     }
