@@ -347,7 +347,7 @@ session-wide grants, question answers, terminal create/input/resize/close,
 revoke stream teardown, body limits, and JSON-safe device persistence.
 
 The app repository also contains a recorded M1 curl walkthrough in
-[`docs/M1-ACCEPTANCE.md`](https://github.com/ada87/app-dsh/blob/main/docs/M1-ACCEPTANCE.md).
+`docs/M1-ACCEPTANCE.md` (https://cnb.cool/ada87/app-dsh-door).
 
 ## Known limitations
 
