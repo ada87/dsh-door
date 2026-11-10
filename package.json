@@ -1,6 +1,6 @@
 {
   "name": "dsh-door",
-  "version": "0.2.0",
+  "version": "0.1.1",
   "description": "dsh-door: mobile BFF plugin for DeepSeek Harness - pairing, session reads, live events, approvals and questions over plain HTTP + SSE.",
   "type": "module",
   "main": "lib/index.js",
