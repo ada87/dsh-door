@@ -29,14 +29,14 @@ export class PushManager {
   ) {}
 
   /**
-   * Prefer a `dsh-mobile/push` credential record over configuration. Push
+   * Prefer a `dsh-door/push` credential record over configuration. Push
    * service-account JSON and APNs keys are secrets, so a deployment that
    * keeps them in the credential store never writes them into cordis.yml.
    */
   async load(): Promise<void> {
     if (this.credentials === undefined) return
     try {
-      const record = await this.credentials.readRecord('dsh-mobile/push' as unknown)
+      const record = await this.credentials.readRecord('dsh-door/push' as unknown)
       const payload = record?.payload
       if (typeof payload === 'object' && payload !== null) this.remote = payload as Partial<PushConfig>
     } catch (error) {

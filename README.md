@@ -35,7 +35,7 @@ Restart `dsh web`. The terminal prints:
 
 ```text
 [dsh-door] dsh 0.2.1-rc.4 satisfies >=0.2.1-rc.4 <0.3.0
-[dsh-door] routes mounted at /dsh-mobile (protocol 1, push none)
+[dsh-door] routes mounted at /dsh-door (protocol 1, push none)
 [dsh-door] pairing code ABCD-EFGH — open the app, enter the server URL, then this code.
 ```
 
@@ -56,7 +56,7 @@ fills the missing cursor with that cut. See `tests/compat.test.ts`.
 Open this URL **in the same browser that is already logged into dsh Web UI**:
 
 ```text
-http://<host>:3080/dsh-mobile/admin
+http://<host>:3080/dsh-door/admin
 ```
 
 The page is protected by the dsh browser cookie: the plugin calls
@@ -73,39 +73,37 @@ The page shows:
   one-time rotation.
 
 Fixed codes are normalized (letters/digits, 4–32 chars, dashes ignored) and
-persisted in the dsh credential store under `dsh-mobile/pairing`. They remain
+persisted in the dsh credential store under `dsh-door/pairing`. They remain
 valid until changed; use them only on a trusted network. One-time codes rotate
 after a successful pairing and expire after `pairingTtlMs`.
 
 ## Pairing
 
 - The plugin generates a one-time code, prints it, and optionally prints a QR
-  payload (`{"v":1,"url":"http://host:port/dsh-mobile","code":"..."}`).
+  payload (`{"v":1,"url":"http://host:port/dsh-door","code":"..."}`).
 - The app sends the code plus a stable public-key fingerprint
   (`devicePublicKey`). The server stores a hash of the bearer token and pins the
   fingerprint as the device id.
 - Tokens are not bound to `host:port`, so changing IP, port, or tunnel does not
   require re-pairing.
 - Device records live in the dsh credential store under the owner-scoped key
-  `dsh-mobile/devices` (grant payload). No token is stored in `cordis.yml`.
-- `GET /dsh-mobile/pair/code` is loopback-only and only exists to make local
+  `dsh-door/devices` (grant payload). No token is stored in `cordis.yml`.
+- `GET /dsh-door/pair/code` is loopback-only and only exists to make local
   setup/curl tests convenient. Remote users read the code from the terminal.
 
 ## Configuration
 
-`basePath` defaults to `/dsh-mobile`. The app's v1 discovery probes that exact
+`basePath` defaults to `/dsh-door`. The app's v1 discovery probes that exact
 path, so a deployment that changes it also needs an app-side setting (planned).
 
-The wire prefix and the persisted credential keys intentionally keep the historical
-`dsh-mobile` name: the v1 React Native app probes `/dsh-mobile/health`, and existing
-pairings live under `dsh-mobile/*`. Renaming the npm package does not change the
-protocol.
+The wire prefix and the persisted credential keys use the same `dsh-door` name:
+the app probes `/dsh-door/health`, and pairings live under `dsh-door/*`.
 
 ```yaml
 - id: dsh-door
   name: 'dsh-door'
   config:
-    basePath: /dsh-mobile
+    basePath: /dsh-door
     allowedHosts: ['dsh.example.com']   # extra Host-header authorities
     requireSecure: false                # true when the Host itself serves TLS
     strictHostCheck: false              # true binds requests to a known authority
@@ -128,7 +126,7 @@ protocol.
 ```
 
 Push credentials are BYO. Put secrets in the dsh credential store under the
-owner-scoped record `dsh-mobile/push` when possible; the plugin reads that record
+owner-scoped record `dsh-door/push` when possible; the plugin reads that record
 first and falls back to configuration:
 
 ```json
@@ -166,7 +164,7 @@ The plugin talks directly to Google/Apple; there is no author-operated relay.
 
 ## HTTP API
 
-All routes are under `basePath` (default `/dsh-mobile`). Except for `/health`
+All routes are under `basePath` (default `/dsh-door`). Except for `/health`
 and `/pair`, every route requires `Authorization: Bearer <device token>`.
 
 | Method | Path | Purpose |

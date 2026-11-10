@@ -702,7 +702,7 @@ function randomPairingToken(): string {
   // 32 random bytes rendered base64url, prefixed for recognisability.
   const bytes = new Uint8Array(32)
   globalThis.crypto.getRandomValues(bytes)
-  return `dshm_${Buffer.from(bytes).toString('base64url')}`
+  return `dshd_${Buffer.from(bytes).toString('base64url')}`
 }
 
 function normalizeAnswers(value: unknown): Array<{ id: string; selected: string[]; custom?: string }> {
@@ -775,7 +775,7 @@ function sendHtml(res: RouteContext['res'], status: number, html: string): void 
 }
 
 function adminDeniedPage(basePath: string): string {
-  return `<!doctype html><meta charset="utf-8"><title>dsh-door · dsh Mobile pairing</title>
+  return `<!doctype html><meta charset="utf-8"><title>dsh-door pairing</title>
 <body style="background:#0b0e14;color:#e8edf7;font:16px system-ui;padding:48px;line-height:1.6">
 <h1>需要 dsh 浏览器登录</h1>
 <p>这个页面只对已经登录 dsh Web UI 的浏览器开放。</p>
@@ -790,7 +790,7 @@ function adminPage(_data: unknown, basePath: string): string {
   const baseJson = JSON.stringify(basePath).replace(/</g, '\\u003c')
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>dsh-door · dsh Mobile 配对</title>
+<title>dsh-door 配对</title>
 <style>
 :root{color-scheme:dark}
 body{background:#0b0e14;color:#e8edf7;font:15px/1.5 system-ui,-apple-system,sans-serif;margin:0;padding:32px}
@@ -808,7 +808,7 @@ pre{background:#0a0d13;border:1px solid #1a2234;border-radius:9px;padding:12px;o
 .warn{color:#fbbf24}.ok{color:#4ade80}.bad{color:#f87171}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 0;border-bottom:1px solid #1a2234;color:#9aa7bd}
 </style></head><body><main>
-<div><h1>dsh-door · dsh Mobile 配对</h1><div class="muted">已通过 dsh 浏览器登录校验 · <span id="mode"></span></div></div>
+<div><h1>dsh-door 配对</h1><div class="muted">已通过 dsh 浏览器登录校验 · <span id="mode"></span></div></div>
 <div class="card">
   <h2>当前配对码</h2>
   <div class="code" id="code">…</div>

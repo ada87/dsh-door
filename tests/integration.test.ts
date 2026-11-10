@@ -220,7 +220,7 @@ before(async () => {
   }
 
   await apply(ctx as unknown as HostContext, {
-    basePath: '/dsh-mobile',
+    basePath: '/dsh-door',
     allowedHosts: [],
     requireSecure: false,
     // The integration suite exercises the stricter opt-in fence. Production
@@ -262,7 +262,7 @@ before(async () => {
   const address = server.address()
   assert.ok(address !== null && typeof address === 'object')
   origin = `http://127.0.0.1:${address.port}`
-  state = { ctx: ctx as unknown as FakeCtx, server, base: `${origin}/dsh-mobile`, records, terminals }
+  state = { ctx: ctx as unknown as FakeCtx, server, base: `${origin}/dsh-door`, records, terminals }
 })
 
 after(async () => {
@@ -302,7 +302,7 @@ test('a code pairs once, then the same code is refused', async () => {
   })
   assert.equal(paired.status, 201)
   const pair = await paired.json() as { token: string; deviceId: string }
-  assert.match(pair.token, /^dshm_/)
+  assert.match(pair.token, /^dshd_/)
   assert.equal(pair.deviceId.length, 32)
   state.token = pair.token
 

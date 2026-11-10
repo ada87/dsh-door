@@ -53,7 +53,7 @@ export async function apply(ctx: HostContext, rawConfig?: Partial<PluginConfig>)
   const hub = new SseHub()
   const push = new PushManager(config, devices, logger, credentials)
   await push.load()
-  const pairingRecordKey = 'dsh-mobile/pairing' as unknown
+  const pairingRecordKey = 'dsh-door/pairing' as unknown
   const pairing = new PairingManager(config, logger, undefined, async (fixedCode) => {
     if (credentials === undefined) return
     await credentials.modifyRecord(pairingRecordKey, async () => ({

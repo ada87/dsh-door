@@ -89,7 +89,7 @@ export interface Config {
 }
 
 export const Config: Schema<Config> = Schema.object({
-  basePath: Schema.string().default('/dsh-mobile'),
+  basePath: Schema.string().default('/dsh-door'),
   allowedHosts: Schema.array(Schema.string()).default([]),
   requireSecure: Schema.boolean().default(false),
   strictHostCheck: Schema.boolean().default(false),
@@ -126,7 +126,7 @@ export function normalizeConfig(input: Partial<Config> | undefined): Config {
   const raw = (input ?? {}) as Partial<Config>
   const push = { ...(raw.push ?? {}) } as Partial<PushConfig>
   const config: Config = {
-    basePath: normalizeBasePath(raw.basePath ?? '/dsh-mobile'),
+    basePath: normalizeBasePath(raw.basePath ?? '/dsh-door'),
     allowedHosts: (raw.allowedHosts ?? []).map(value => value.trim().toLowerCase()).filter(Boolean),
     requireSecure: raw.requireSecure ?? false,
     strictHostCheck: raw.strictHostCheck ?? false,

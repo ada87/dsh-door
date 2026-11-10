@@ -2,7 +2,7 @@ import type { CredentialProviderService, HostContext } from './host.js'
 import { fingerprint, safeEqual, sha256 } from './util.js'
 
 /** Credential record key owned by this plugin. */
-const DEVICE_RECORD_KEY = 'dsh-mobile/devices' as unknown
+const DEVICE_RECORD_KEY = 'dsh-door/devices' as unknown
 
 export interface DevicePushRegistration {
   provider: 'fcm' | 'apns'
