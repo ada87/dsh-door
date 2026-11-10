@@ -277,9 +277,31 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section',
           id: 'dsh-door',
-          order: 50,
+          order: -20,
           label: () => t('nav'),
         }, AdminSection))
+
+        ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
+          name: 'settings.section.icon',
+          id: 'dsh-door',
+        }, ({ size = 16, active }) => h('svg', {
+          width: size,
+          height: size,
+          viewBox: '0 0 16 16',
+          'aria-hidden': true,
+        },
+        h('path', {
+          d: 'M3 2.5h7v11H3z',
+          fill: active ? 'currentColor' : 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.2,
+        }),
+        h('path', {
+          d: 'M10 3.5l3 1v9l-3-1z',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.2,
+        }))))
 
         ctx.slots.inject('plugins.detail.actions', () => ctx.slots.register({
           name: 'plugins.detail.actions',
