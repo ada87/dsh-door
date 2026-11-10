@@ -18,6 +18,15 @@
     "door"
   ],
   "license": "MIT",
+  "author": "ada87",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ada87/dsh-door.git"
+  },
+  "homepage": "https://github.com/ada87/dsh-door#readme",
+  "bugs": {
+    "url": "https://github.com/ada87/dsh-door/issues"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
