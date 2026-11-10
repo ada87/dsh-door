@@ -224,8 +224,8 @@ export class InteractionBroker {
    * then closes the call.
    */
   async answerContinued(sessionId: string, callId: string, answer: QuestionAnswer): Promise<boolean> {
-    const questions = this.ctx.userQuestions ?? (this.ctx.get('userQuestions') as typeof this.ctx.userQuestions)
-    const controller = this.ctx.sessionController ?? (this.ctx.get('sessionController') as typeof this.ctx.sessionController)
+    const questions = getService<NonNullable<HostContext['userQuestions']>>(this.ctx, 'userQuestions')
+    const controller = this.ctx.sessionController
     if (questions === undefined || controller === undefined) return false
     const resolved = await controller.resolveAgent(sessionId)
     const agent = resolved.agent
@@ -356,8 +356,7 @@ export class InteractionBroker {
   }
 
   private browserWins(): boolean {
-    const gateway = this.ctx.typertGateway
-      ?? (this.ctx.get('typertGateway') as typeof this.ctx.typertGateway)
+    const gateway = getService<NonNullable<HostContext['typertGateway']>>(this.ctx, 'typertGateway')
     return gateway?.hasLiveClient() === true
   }
 
@@ -398,4 +397,13 @@ function toApprovalItem(pending: PendingApproval): ApprovalItem {
 
 function grantKey(sessionId: string, toolName: string): string {
   return `${sessionId}\u0000${toolName}`
+}
+
+/** Resolve an optional Cordis service without reading its property. */
+function getService<T>(ctx: HostContext, name: string): T | undefined {
+  try {
+    return ctx.get(name) as T | undefined
+  } catch {
+    return undefined
+  }
 }

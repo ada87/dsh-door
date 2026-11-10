@@ -249,7 +249,8 @@ export class TerminalManager {
   }
 
   private subprocess(): SubprocessService | undefined {
-    if (this.ctx.subprocess !== undefined) return this.ctx.subprocess
+    // Reading a service property that the plugin does not inject makes Cordis
+    // throw, so resolve optional services only through ctx.get().
     try {
       return this.ctx.get('subprocess') as SubprocessService | undefined
     } catch {
