@@ -66,6 +66,7 @@
     "@types/qrcode-terminal": "^0.12.2",
     "@types/semver": "^7.7.1",
     "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }
