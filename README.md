@@ -83,6 +83,20 @@ version at startup and marks it incompatible: update dsh-door to a release with
 a matching range instead of reinstalling. Pairings and device tokens live in the
 credential store under `dsh-door/*` and survive plugin updates.
 
+### Coming from `@xdnote/dsh-mobile`
+
+Remove the old package once; it owns the old `/dsh-mobile` routes and the old
+credential keys:
+
+```sh
+dsh plugin --profile web remove @xdnote/dsh-mobile
+dsh plugin --profile web add dsh-door
+```
+
+Device records now live under `dsh-door/*`, so pairings are not migrated: pair
+the phone again. The app's storage keys are also `@dsh-door/*` now, so install
+the new app build rather than upgrading the old one in place.
+
 ## Pairing code in the browser
 
 Open this URL **in the same browser that is already logged into dsh Web UI**:
