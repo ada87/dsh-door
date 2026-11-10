@@ -134,6 +134,11 @@ contributed by the package's small browser half (`client/client.js`) through the
 `plugins.detail.actions` and `plugins.detail.section` slots, and it follows the
 configured `basePath`.
 
+The browser half is part of the page's boot manifest, so after installing or
+updating the plugin, restart `dsh web` and reload the Web UI (a hard refresh,
+not just the settings tab). An already-open tab keeps the old module graph and
+will not show the link.
+
 Fixed codes are normalized (letters/digits, 4–32 chars, dashes ignored) and
 persisted in the dsh credential store under `dsh-door/pairing`. They remain
 valid until changed; use them only on a trusted network. One-time codes rotate
