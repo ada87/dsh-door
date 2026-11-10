@@ -27,7 +27,7 @@ From a checkout or a packed tarball:
 dsh plugin --profile web add /path/to/dsh-door
 # or
 pnpm pack
-dsh plugin --profile web add ./dsh-door-0.2.0.tgz
+dsh plugin --profile web add ./dsh-door-0.1.1.tgz
 ```
 
 Restart `dsh web`. The terminal prints:
