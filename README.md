@@ -59,8 +59,17 @@ available** and a **Versions** section; **Update** removes the old version,
 installs the selected one, keeps the bundle enabled, and recomposes with HMR or
 asks for a restart. A failed update restores the previous version when possible.
 
-The Web UI is preferred because it checks `engines.dsh` before touching the
-profile and rolls back a failed install. From the CLI:
+The **Update / Versions** section is a dsh 0.2.2 feature. On dsh 0.2.1 the page
+has no update action, so update from the CLI instead:
+
+```sh
+dsh plugin --profile web remove dsh-door
+dsh plugin --profile web add dsh-door@latest
+# restart dsh
+```
+
+The Web UI is preferred on 0.2.2+ because it checks `engines.dsh` before
+touching the profile and rolls back a failed install. From the CLI:
 
 ```sh
 dsh plugin --profile web add dsh-door@latest
