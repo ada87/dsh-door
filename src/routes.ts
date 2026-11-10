@@ -71,10 +71,10 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     auth: 'public',
     handler: async (rc) => {
       if (!adminAuthorized(deps, rc)) {
-        sendHtml(rc.res, 401, adminDeniedHtml(rc, config.basePath))
+        sendHtml(rc.res, 401, adminDeniedHtml(rc, config.basePath, config.devAdminReload))
         return
       }
-      sendHtml(rc.res, 200, adminHtml(rc))
+      sendHtml(rc.res, 200, adminHtml(rc, config.devAdminReload))
     },
   })
 
@@ -778,9 +778,11 @@ function sendHtml(res: RouteContext['res'], status: number, html: string): void 
 const webTemplateCache = new Map<string, string>()
 
 /** Read a build-time React template from lib/web and cache it. */
-function webTemplate(name: string): string {
-  const cached = webTemplateCache.get(name)
-  if (cached !== undefined) return cached
+function webTemplate(name: string, reload: boolean): string {
+  if (!reload) {
+    const cached = webTemplateCache.get(name)
+    if (cached !== undefined) return cached
+  }
   const filename = fileURLToPath(new URL(`../lib/web/${name}`, import.meta.url))
   let html: string
   try {
@@ -791,7 +793,7 @@ function webTemplate(name: string): string {
       { cause: error },
     )
   }
-  webTemplateCache.set(name, html)
+  if (!reload) webTemplateCache.set(name, html)
   return html
 }
 
@@ -803,12 +805,12 @@ function adminLocale(rc: RouteContext): 'zh' | 'en' {
   return /(^|,)\s*zh\b/i.test(value) ? 'zh' : 'en'
 }
 
-function adminHtml(rc: RouteContext): string {
-  return webTemplate(`admin.${adminLocale(rc)}.html`)
+function adminHtml(rc: RouteContext, reload: boolean): string {
+  return webTemplate(`admin.${adminLocale(rc)}.html`, reload)
 }
 
-function adminDeniedHtml(rc: RouteContext, basePath: string): string {
-  return webTemplate(`admin-denied.${adminLocale(rc)}.html`)
+function adminDeniedHtml(rc: RouteContext, basePath: string, reload: boolean): string {
+  return webTemplate(`admin-denied.${adminLocale(rc)}.html`, reload)
     .replaceAll('__ADMIN_PATH__', escapeHtml(`${basePath}/admin`))
 }
 

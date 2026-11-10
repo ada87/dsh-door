@@ -49,6 +49,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node build.mjs && npm run build:web",
     "build:web": "tsx --tsconfig web/tsconfig.json web/render.tsx",
+    "dev:host": "node build.mjs",
+    "dev:web": "tsx watch --tsconfig web/tsconfig.json web/render.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:web": "tsc -p web/tsconfig.json --noEmit",
     "test": "tsx --test tests/*.test.ts",

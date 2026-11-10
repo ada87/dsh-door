@@ -76,6 +76,11 @@ export interface Config {
    * model/tool call, then turn it off.
    */
   enableDebugRoutes: boolean
+  /**
+   * Re-read the generated admin HTML on every request instead of caching it.
+   * Development only: pair it with `pnpm dev:web`.
+   */
+  devAdminReload: boolean
   /** Maximum JSON request body in bytes. */
   maxBodyBytes: number
   /** Rate-limit window in milliseconds. */
@@ -102,6 +107,7 @@ export const Config: Schema<Config> = Schema.object({
   questionWaitTimeoutMs: Schema.number().default(2 * 60 * 1000),
   allowSessionWideGrants: Schema.boolean().default(true),
   enableDebugRoutes: Schema.boolean().default(false),
+  devAdminReload: Schema.boolean().default(false),
   maxBodyBytes: Schema.number().default(64 * 1024),
   rateLimitWindowMs: Schema.number().default(60 * 1000),
   rateLimitMax: Schema.number().default(240),
@@ -138,6 +144,7 @@ export function normalizeConfig(input: Partial<Config> | undefined): Config {
     questionWaitTimeoutMs: raw.questionWaitTimeoutMs ?? 2 * 60 * 1000,
     allowSessionWideGrants: raw.allowSessionWideGrants ?? true,
     enableDebugRoutes: raw.enableDebugRoutes ?? false,
+    devAdminReload: raw.devAdminReload ?? false,
     maxBodyBytes: raw.maxBodyBytes ?? 64 * 1024,
     rateLimitWindowMs: raw.rateLimitWindowMs ?? 60 * 1000,
     rateLimitMax: raw.rateLimitMax ?? 240,

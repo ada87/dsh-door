@@ -157,6 +157,40 @@ runtime. To add a locale, add its dictionary in `web/src/i18n.ts` and its id to
 the `locales` array in `web/render.tsx`; the Host picks it from `?lang=` or
 `Accept-Language`.
 
+### Local development without publishing
+
+Install the checkout once as a link; every rebuild is served from the same path:
+
+```sh
+dsh plugin --profile web add link:/absolute/path/to/dsh-door
+```
+
+Then:
+
+- **Host code**: `pnpm dev:host` (esbuild + `client/client.js` copy) and restart
+  `dsh web`.
+- **Admin HTML**: `pnpm dev:web` (watch) plus `devAdminReload: true` in the
+  profile; refresh the browser, no Host restart.
+- **Client half**: `pnpm dev:host` refreshes `lib/client.js`; hard-refresh the
+  browser. If the boot manifest keeps the old revision, restart `dsh web`.
+- **Before publishing**: `pnpm build` (types + bundle + templates) and
+  `pnpm test`.
+
+Use a separate home if you do not want to touch your real profile:
+
+```sh
+DSH_HOME=$HOME/.dsh-dev dsh plugin --profile web add link:/absolute/path/to/dsh-door
+DSH_HOME=$HOME/.dsh-dev dsh web --port 4001
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:DSH_HOME="$HOME\.dsh-dev"
+dsh plugin --profile web add link:D:/all-in-mobile/apps/dsh-door
+dsh web --port 4001
+```
+
 Fixed codes are normalized (letters/digits, 4–32 chars, dashes ignored) and
 persisted in the dsh credential store under `dsh-door/pairing`. They remain
 valid until changed; use them only on a trusted network. One-time codes rotate
@@ -199,6 +233,7 @@ the app probes `/dsh-door/health`, and pairings live under `dsh-door/*`.
     questionWaitTimeoutMs: 120000
     allowSessionWideGrants: true
     enableDebugRoutes: false            # true exposes authenticated /debug/* test routes
+    devAdminReload: false               # true re-reads lib/web/admin.*.html on every request
     maxBodyBytes: 65536
     rateLimitWindowMs: 60000
     rateLimitMax: 240
