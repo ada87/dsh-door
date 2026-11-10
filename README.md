@@ -41,14 +41,47 @@ Restart `dsh web`. The terminal prints:
 The code has a five-minute TTL by default. After a successful pairing it rotates;
 the terminal prints the next one.
 
-The plugin refuses to start when the running dsh version does not satisfy its
-`engines.dsh` range. `package.json` declares the same range, so `dsh plugin add`
-also refuses a mismatch before startup.
+The Host's compatibility gate enforces the `engines.dsh` range at install and
+profile startup. If a linked or exempted install runs outside the tested range,
+the plugin logs a warning and reports `dshCompatible: false` in `/health`
+instead of failing to load.
 
 Supported range: `>=0.2.1-rc.4 <0.3.0`. 0.2.1 lacks `sessionController.state()`
 and requires an explicit `page(throughSeq)`; the facade synthesizes state from
 projections + list and always supplies the projection watermark as the cut, then
 fills the missing cursor with that cut. See `tests/compat.test.ts`.
+
+## Upgrade
+
+Install from the npm registry (the default `dsh plugin add dsh-door`) so dsh can
+track releases. The **dsh-door** page under **Plugins** then shows **Update
+available** and a **Versions** section; **Update** removes the old version,
+installs the selected one, keeps the bundle enabled, and recomposes with HMR or
+asks for a restart. A failed update restores the previous version when possible.
+
+The Web UI is preferred because it checks `engines.dsh` before touching the
+profile and rolls back a failed install. From the CLI:
+
+```sh
+dsh plugin --profile web add dsh-door@latest
+# restart dsh if the result asks for it
+```
+
+If you installed from a tarball or a `link:` path, that entry is not updatable;
+switch it once:
+
+```sh
+dsh plugin --profile web remove dsh-door
+dsh plugin --profile web add dsh-door@latest
+```
+
+### dsh upgrades
+
+The plugin is a profile dependency, so upgrading dsh keeps it installed. dsh
+0.2.x releases stay inside the supported range. A dsh 0.3.x Host refuses this
+version at startup and marks it incompatible: update dsh-door to a release with
+a matching range instead of reinstalling. Pairings and device tokens live in the
+credential store under `dsh-door/*` and survive plugin updates.
 
 ## Pairing code in the browser
 

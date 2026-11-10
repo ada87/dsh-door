@@ -9,9 +9,10 @@ export interface VersionCheck {
 }
 
 /**
- * Resolve the running dsh version and reject an unsupported runtime before any
- * route is registered. `engines.dsh` already guards installation; this is the
- * second line of defense for a checkout or a manually linked package.
+ * Resolve the running dsh version. `engines.dsh` already guards installation
+ * and profile startup, so a mismatch here is reported (and surfaced through
+ * `/health` as `dshCompatible: false`) instead of failing the plugin: a linked
+ * checkout or an exempted install should still get a chance to run.
  */
 export async function checkDshVersion(
   range: string,
@@ -32,10 +33,11 @@ export async function checkDshVersion(
     compatible = false
   }
   if (!compatible) {
-    throw new Error(
-      `dsh-door: incompatible dsh runtime ${version}; this build supports "${range}". ` +
-      'Install a matching plugin release or update dsh. Refusing to start instead of degrading silently.',
+    logger.warn(
+      `[dsh-door] running dsh ${version} is outside this build's tested range "${range}". ` +
+      'The Host may refuse the plugin; update dsh-door to a release that supports this dsh.',
     )
+    return { version, compatible: false }
   }
   logger.info(`[dsh-door] dsh ${version} satisfies ${range}`)
   return { version, compatible }
