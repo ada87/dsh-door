@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output (npm prepare rebuilds lib/ before publish)
+lib/
+
+# Local packing and logs
+*.tgz
+*.log
+coverage/
+.DS_Store
+
+# Lockfiles are machine-specific for this standalone package.
+# pnpm users may commit pnpm-lock.yaml instead.
+package-lock.json
