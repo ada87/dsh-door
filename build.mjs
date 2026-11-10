@@ -1,3 +1,4 @@
+import { copyFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 
 /**
@@ -23,3 +24,6 @@ await build({
     js: '// dsh-door - bundled by esbuild; dsh services stay external.',
   },
 })
+
+// The browser half is a hand-written lazy-CJS factory, not TypeScript output.
+await copyFile('client/client.js', 'lib/client.js')

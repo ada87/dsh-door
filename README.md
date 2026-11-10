@@ -21,7 +21,6 @@ devices with its own bearer token, and uses the Host's own
 ```sh
 dsh plugin --profile web add dsh-door
 ```
-
 From a checkout or a packed tarball:
 
 ```sh
@@ -71,6 +70,13 @@ The page shows:
 - the paired-device table;
 - buttons to generate a new one-time code, set a **fixed code**, or restore
   one-time rotation.
+
+The same page is linked from dsh's plugin manager: open **Plugins**, select
+**dsh-door**, and use **配对管理 / Pairing admin** in the page header (or the
+"手机配对 / Phone pairing" section below the component list). The link is
+contributed by the package's small browser half (`client/client.js`) through the
+`plugins.detail.actions` and `plugins.detail.section` slots, and it follows the
+configured `basePath`.
 
 Fixed codes are normalized (letters/digits, 4–32 chars, dashes ignored) and
 persisted in the dsh credential store under `dsh-door/pairing`. They remain

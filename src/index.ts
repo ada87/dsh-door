@@ -105,6 +105,16 @@ export async function apply(ctx: HostContext, rawConfig?: Partial<PluginConfig>)
     return () => dispose()
   }, 'dsh-door: mobile routes')
 
+  // The browser half reads this to link to the configured admin route instead
+  // of assuming the default base path.
+  ctx.effect(() => {
+    const off = ctx.on('webserver/index-inject', (table) => {
+      const rows = table as Array<{ kind: 'global'; name: string; value: unknown }>
+      rows.push({ kind: 'global', name: '__DSH_DOOR__', value: { basePath: config.basePath } })
+    }, { global: true })
+    return () => off()
+  }, 'dsh-door: index injection')
+
   registerSessionNotifications(host, hub, push, sessions, logger, terminals)
 
   ctx.effect(() => () => {
