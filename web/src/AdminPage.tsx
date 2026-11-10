@@ -52,7 +52,7 @@ export function AdminPage({ locale, text, styles, clientScript }: AdminPageProps
 
           <div className="card">
             <h2>{text.qrTitle}</h2>
-            <pre id="qr">{text.qrLoading}</pre>
+            <div id="qr" className="dd-qr">{text.qrLoading}</div>
             <div className="muted">
               {text.qrHint} <code>{'{"v":1,"url":…,"code":…}'}</code>
             </div>

@@ -25,7 +25,12 @@
     byId('expiry').textContent = data.fixed
       ? (T.fixedExpiry || '')
       : ((T.expiryPrefix || '') + new Date(data.expiresAt).toLocaleString())
-    byId('qr').textContent = data.qr || T.qrFailed || ''
+    const qr = byId('qr')
+    if (data.qrSvg) {
+      qr.innerHTML = data.qrSvg
+    } else {
+      qr.textContent = T.qrFailed || ''
+    }
     const rows = (data.devices || []).map(device =>
       '<tr><td>' + esc(device.deviceName) +
       '<br><span class="muted">' + esc(device.platform || '') + ' ' +

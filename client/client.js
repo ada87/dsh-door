@@ -36,6 +36,8 @@ window.__ModuleLoader__.load({
 .dd-block{display:flex;flex-direction:column;gap:8px;padding:16px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.22))}
 .dd-code{font:600 20px ui-monospace,monospace;letter-spacing:3px;color:var(--dsw-alias-brand-primary,#3d7bfd)}
 .dd-qr{font-size:10px;line-height:1;overflow:auto;margin:0;color:var(--dsw-alias-label-secondary);max-height:220px}
+.dd-qr-img{display:flex;justify-content:center;align-self:center;background:#fff;border-radius:8px;padding:8px}
+.dd-qr-img svg{width:220px;height:220px;display:block}
 .dd-table{width:100%;border-collapse:collapse;font-size:13px}
 .dd-table th,.dd-table td{text-align:left;padding:8px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.18));color:var(--dsw-alias-label-secondary)}
 .dd-table th{font-weight:500;color:var(--dsw-alias-label-tertiary)}
@@ -67,6 +69,8 @@ window.__ModuleLoader__.load({
       noDevices: '还没有设备',
       footer: '配对码默认 5 分钟有效。固定码会写入 dsh 凭据存储，重启后仍然有效。',
       fixedExpiry: '固定码长期有效，直到你手动恢复一次性码',
+      fixedMode: '固定码',
+      oneTimeMode: '一次性码',
       expiry: '过期时间：{time}',
       codeLost: '登录已失效，请刷新 dsh Web UI',
       operationFailed: '操作失败',
@@ -99,6 +103,8 @@ window.__ModuleLoader__.load({
       noDevices: 'No devices yet',
       footer: 'One-time codes expire after 5 minutes by default. A fixed code is stored in the dsh credential store and survives restarts.',
       fixedExpiry: 'The fixed code stays valid until you restore one-time rotation',
+      fixedMode: 'Fixed code',
+      oneTimeMode: 'One-time code',
       expiry: 'Expires: {time}',
       codeLost: 'Session expired. Reload the dsh Web UI.',
       operationFailed: 'Operation failed',
@@ -264,7 +270,9 @@ window.__ModuleLoader__.load({
 
             h('div', { className: 'dd-block' },
               h('span', { className: 'dd-label' }, t('qrTitle')),
-              h('pre', { className: 'dd-qr' }, data?.qr || t('qrLoading')),
+              data?.qrSvg
+                ? h('div', { className: 'dd-qr-img', dangerouslySetInnerHTML: { __html: data.qrSvg } })
+                : h('span', { className: 'dd-desc' }, t('qrFailed')),
               h('span', { className: 'dd-desc' }, t('qrHint'), ' ', h('code', null, '{"v":1,"url":…,"code":…}')),
             ),
 

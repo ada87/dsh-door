@@ -744,6 +744,7 @@ async function adminData(deps: RouteDependencies): Promise<Record<string, unknow
   const origin = serverFacts(deps).origin ?? ''
   const payload = JSON.stringify({ v: 1, url: `${origin}${deps.config.basePath}`, code: view.code })
   const qr = await renderQr(payload)
+  const qrSvg = await renderQrSvg(payload)
   return {
     code: view.code,
     formatted: view.formatted,
@@ -752,6 +753,7 @@ async function adminData(deps: RouteDependencies): Promise<Record<string, unknow
     origin,
     basePath: deps.config.basePath,
     qr,
+    qrSvg,
     time: Date.now(),
     devices: deps.devices.list().map(device => ({
       deviceId: device.deviceId,
@@ -829,6 +831,25 @@ async function renderQr(text: string): Promise<string | null> {
         .generate(text, { small: true }, resolve)
     })
   } catch {
+    return null
+  }
+}
+
+async function renderQrSvg(text: string): Promise<string | null> {
+  try {
+    const mod = await import('qrcode')
+    const qrcode = (mod as { default?: unknown }).default ?? mod
+    return await (qrcode as {
+      toString(input: string, options?: unknown): Promise<string>
+    }).toString(text, {
+      type: 'svg',
+      margin: 1,
+      width: 320,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0b0e14', light: '#ffffff' },
+    })
+  } catch (error) {
+    console.warn('[dsh-door] QR SVG generation failed:', error)
     return null
   }
 }

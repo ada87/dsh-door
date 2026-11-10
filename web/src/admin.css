@@ -11,5 +11,7 @@ button.secondary{background:#0f1420;color:#e8edf7;border:1px solid #243049}
 button.danger{background:#3a1720;color:#f87171;border:1px solid #f87171}
 input{background:#0f1420;border:1px solid #243049;color:#e8edf7;border-radius:9px;padding:10px;font:15px ui-monospace,monospace;min-width:220px}
 pre{background:#0a0d13;border:1px solid #1a2234;border-radius:9px;padding:12px;overflow:auto;color:#9aa7bd;font-size:10px;line-height:1}
+.dd-qr{display:flex;align-items:center;justify-content:center;color:#9aa7bd}
+.dd-qr svg{width:220px;height:220px;display:block;border-radius:8px;background:#fff}
 .warn{color:#fbbf24}.ok{color:#4ade80}.bad{color:#f87171}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 0;border-bottom:1px solid #1a2234;color:#9aa7bd}
