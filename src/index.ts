@@ -51,7 +51,8 @@ export async function apply(ctx: HostContext, rawConfig?: Partial<PluginConfig>)
   await devices.load()
 
   const hub = new SseHub()
-  const push = new PushManager(config, devices, logger, credentials)
+  const hostOrigin = (host.webServer.getOrigin?.() ?? '').replace(/\/+$/, '')
+  const push = new PushManager(config, devices, logger, credentials, hostOrigin.length > 0 ? `plugin:${hostOrigin}` : '')
   await push.load()
   const pairingRecordKey = 'dsh-door/pairing' as unknown
   const pairing = new PairingManager(config, logger, undefined, async (fixedCode) => {

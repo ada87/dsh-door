@@ -1,6 +1,6 @@
 import type { Config } from './config.js'
 import type { AgentLike, HostContext } from './host.js'
-import type { ApprovalItem, ApprovalDecision, QuestionItem, QuestionItemEnvelope } from './protocol.js'
+import type { ApprovalItem, ApprovalDecision, ApprovalPreview, QuestionItem, QuestionItemEnvelope } from './protocol.js'
 import type { SseHub } from './streams.js'
 import { newId, shortError } from './util.js'
 
@@ -11,6 +11,7 @@ interface PendingApproval {
   callId?: string
   reason?: string
   displayReason?: { en: string; [locale: string]: string }
+  preview?: ApprovalPreview
   createdAt: number
   expiresAt: number
   resolve(decision: ApprovalDecision | 'timeout'): void
@@ -263,6 +264,7 @@ export class InteractionBroker {
     const id = newId()
     const createdAt = Date.now()
     const expiresAt = createdAt + this.config.approvalWaitTimeoutMs
+    const preview = await this.buildApprovalPreview(sessionId, req)
     const decision = await new Promise<ApprovalDecision | 'timeout'>((resolve) => {
       const timer = setTimeout(() => {
         this.approvals.delete(id)
@@ -277,6 +279,7 @@ export class InteractionBroker {
         callId: req.callId,
         reason: req.reason,
         displayReason: req.displayReason,
+        ...(preview === undefined ? {} : { preview }),
         createdAt,
         expiresAt,
         resolve,
@@ -355,6 +358,45 @@ export class InteractionBroker {
     return answer
   }
 
+  /**
+   * Read the approval's `tool/call` event and produce a small presentation
+   * preview. This is best-effort: a missing/old page must never delay or block
+   * the approval itself.
+   */
+  private async buildApprovalPreview(sessionId: string, req: ApprovalRequestLike): Promise<ApprovalPreview | undefined> {
+    const controller = this.ctx.sessionController
+    if (controller === undefined || req.callId === undefined) return undefined
+    const abort = new AbortController()
+    const timer = setTimeout(() => abort.abort(), 700)
+    timer.unref?.()
+    try {
+      const page = await controller.page({
+        address: { kind: 'session', sessionId: sessionId as never },
+        maxMessages: 120,
+        turnWindow: { minMessages: 20, minTurns: 1 },
+      }, abort.signal)
+      const events = page.records.map(entry => entry.event)
+      let call = events.find(event => event.type === 'tool/call'
+        && String((event.data as { callId?: unknown } | undefined)?.callId ?? '') === req.callId)
+      if (call === undefined) {
+        for (let index = events.length - 1; index >= 0; index -= 1) {
+          const event = events[index]!
+          if (event.type === 'tool/call'
+            && String((event.data as { name?: unknown } | undefined)?.name ?? '') === req.toolName) {
+            call = event
+            break
+          }
+        }
+      }
+      if (call === undefined) return undefined
+      return previewToolCall(req.toolName, call.data)
+    } catch {
+      return undefined
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   private browserWins(): boolean {
     const gateway = getService<NonNullable<HostContext['typertGateway']>>(this.ctx, 'typertGateway')
     return gateway?.hasLiveClient() === true
@@ -390,9 +432,117 @@ function toApprovalItem(pending: PendingApproval): ApprovalItem {
     callId: pending.callId,
     reason: pending.reason,
     displayReason: pending.displayReason,
+    ...(pending.preview === undefined ? {} : { preview: pending.preview }),
     createdAt: pending.createdAt,
     expiresAt: pending.expiresAt,
   }
+}
+
+export function previewToolCall(toolName: string, value: unknown): ApprovalPreview | undefined {
+  const data = asRecord(value)
+  if (data === null) return undefined
+  const raw = typeof data.arguments === 'string'
+    ? data.arguments
+    : data.arguments === undefined ? undefined : safeStringify(data.arguments)
+  const args = parseArgs(raw)
+  const path = firstString(args, ['file_path', 'path', 'file'])
+  const command = firstString(args, ['command', 'cmd'])
+
+  if (toolName === 'bash' || toolName === 'pwsh' || toolName === 'shell') {
+    if (command === null) return undefined
+    return { kind: 'command', title: '执行命令', detail: `$ ${truncate(command, 1200)}` }
+  }
+
+  if (toolName === 'edit' || toolName === 'apply_patch' || toolName === 'write') {
+    const oldText = firstString(args, ['old_string', 'oldString', 'old_text', 'oldText'])
+    const newText = firstString(args, ['new_string', 'newString', 'new_text', 'newText'])
+    const patch = firstString(args, ['patch', 'diff'])
+    if (oldText !== null && newText !== null) {
+      const removed = oldText.length === 0 ? 0 : oldText.split('\n').length
+      const added = newText.length === 0 ? 0 : newText.split('\n').length
+      const detail = [
+        path === null ? 'file' : path,
+        '--- old',
+        ...oldText.split('\n').map(line => `- ${line}`),
+        '+++ new',
+        ...newText.split('\n').map(line => `+ ${line}`),
+      ].join('\n')
+      return { kind: 'diff', title: path === null ? '修改文件' : `修改 ${path}`, detail: truncate(detail, 1600), added, removed }
+    }
+    if (patch !== null) {
+      return { kind: 'diff', title: path === null ? '应用补丁' : `修改 ${path}`, detail: truncate(patch, 1600) }
+    }
+    const content = firstString(args, ['content'])
+    if (toolName === 'write' && content !== null) {
+      return {
+        kind: 'diff',
+        title: path === null ? '写入文件' : `写入 ${path}`,
+        detail: truncate(content, 1000),
+        added: content.length === 0 ? 0 : content.split('\n').length,
+        removed: 0,
+      }
+    }
+    if (path !== null) return { kind: 'path', title: `修改 ${path}`, detail: path }
+    return undefined
+  }
+
+  if (toolName === 'read' || toolName === 'grep' || toolName === 'glob') {
+    const pattern = firstString(args, ['pattern'])
+    return {
+      kind: 'path',
+      title: toolName === 'read' ? '读取文件' : toolName === 'grep' ? '搜索文本' : '查找文件',
+      ...(path !== null ? { detail: path } : pattern !== null ? { detail: pattern } : {}),
+    }
+  }
+
+  if (toolName === 'web_search') {
+    const query = firstString(args, ['query', 'q'])
+    return query === null ? undefined : { kind: 'text', title: '联网搜索', detail: query }
+  }
+
+  if (toolName === 'web_fetch' || toolName === 'fetch' || toolName === 'browser') {
+    const url = firstString(args, ['url', 'href'])
+    return url === null ? undefined : { kind: 'url', title: '打开网页', detail: url }
+  }
+
+  if (raw === undefined || raw.length === 0) return undefined
+  return { kind: 'text', title: toolName, detail: truncate(raw, 1000) }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function parseArgs(raw: string | undefined): Record<string, unknown> | null {
+  if (raw === undefined || raw.trim().length === 0) return null
+  try {
+    return asRecord(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+function firstString(args: Record<string, unknown> | null, keys: string[]): string | null {
+  if (args === null) return null
+  for (const key of keys) {
+    const value = args[key]
+    if (typeof value === 'string' && value.length > 0) return value
+  }
+  return null
+}
+
+function safeStringify(value: unknown): string | undefined {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return undefined
+  }
+}
+
+function truncate(value: string, max: number): string {
+  return value.length <= max ? value : `${value.slice(0, max - 1)}…`
 }
 
 function grantKey(sessionId: string, toolName: string): string {

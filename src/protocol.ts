@@ -247,6 +247,20 @@ export interface RenameRequest {
   title: string
 }
 
+/**
+ * A small, presentation-only summary of the tool call behind an approval.
+ * The app renders it as a command block / diff / URL; clients that do not
+ * understand the kind still get a readable `title` and `detail`.
+ */
+export interface ApprovalPreview {
+  kind: 'command' | 'diff' | 'url' | 'path' | 'text'
+  title: string
+  detail?: string
+  /** For diffs: number of added/removed lines, when cheap to count. */
+  added?: number
+  removed?: number
+}
+
 export interface ApprovalItem {
   id: string
   sessionId: string
@@ -258,6 +272,8 @@ export interface ApprovalItem {
   expiresAt: number
   /** True when this is a process-local session-wide grant already in effect. */
   auto?: boolean
+  /** Optional summary of the call arguments; older plugins omit it. */
+  preview?: ApprovalPreview
 }
 
 export type ApprovalDecision = 'allow' | 'deny' | 'always'

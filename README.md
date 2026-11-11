@@ -313,7 +313,7 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | POST | `/sessions/:id/cancel` | Stop the current turn |
 | GET | `/sessions/:id/open` | Escape-hatch browser URL |
 | GET | `/events` | Global SSE: approvals, questions, sessions, turn end |
-| GET | `/approvals` | Pending approvals |
+| GET | `/approvals` | Pending approvals (optional `preview`: command/diff/URL/path) |
 | POST | `/approvals/:id` | `allow` / `always` / `deny` |
 | GET | `/questions` | Pending questions |
 | POST | `/questions/:id/answer` | Structured answer batch |
@@ -335,6 +335,13 @@ The plugin follows the required policy exactly:
 
 `always` is a process-local session grant for one `session + tool` pair. dsh only
 defines one-shot `allowed-once`; the plugin does not invent durable grants.
+
+Approval events try to include a presentation-only `preview` by reading the
+matching `tool/call` event (`bash` command, `edit` diff, `web_fetch` URL, etc.).
+The lookup is best-effort and bounded so it never blocks the approval. Push data
+also carries `hostId` (when the Host origin is known) and the approval's
+`sessionId`, so a multi-host app can switch to the right Host before opening the
+session.
 
 ### Questions
 

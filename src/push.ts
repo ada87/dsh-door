@@ -26,6 +26,7 @@ export class PushManager {
     private readonly devices: DeviceStore,
     private readonly logger: { info(message: string): void; warn(message: string): void },
     private readonly credentials?: CredentialProviderService,
+    private readonly hostId: string = '',
   ) {}
 
   /**
@@ -63,7 +64,7 @@ export class PushManager {
     if (kind === 'approval' && !push.notifyApproval) return
     if (kind === 'question' && !push.notifyQuestion) return
     if (kind === 'turn-end' && !push.notifyTurnEnd) return
-    const message = render(kind, payload)
+    const message = render(kind, payload, this.hostId)
     void this.send(message).catch((error: unknown) => {
       this.logger.warn(`[dsh-door] push failed: ${shortError(error)}`)
     })
@@ -210,29 +211,53 @@ function base64url(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64url')
 }
 
-function render(kind: 'approval' | 'question' | 'turn-end', payload: unknown): PushPayload {
+function render(kind: 'approval' | 'question' | 'turn-end', payload: unknown, hostId: string): PushPayload {
   if (kind === 'approval') {
-    const item = payload as { id?: string; toolName?: string; reason?: string; displayReason?: { en?: string } }
-    const reason = item.displayReason?.en ?? item.reason ?? ''
+    const item = payload as {
+      id?: string
+      sessionId?: string
+      toolName?: string
+      reason?: string
+      displayReason?: { en?: string }
+      preview?: { title?: string; detail?: string }
+    }
+    const reason = item.preview?.title ?? item.displayReason?.en ?? item.reason ?? ''
+    const detail = item.preview?.detail
+    const data: Record<string, string> = {
+      kind,
+      approvalId: item.id ?? '',
+      sessionId: item.sessionId ?? '',
+      toolName: item.toolName ?? '',
+    }
+    if (hostId.length > 0) data.hostId = hostId
+    if (detail !== undefined) data.preview = truncate(detail, 300)
     return {
       title: 'dsh needs approval',
       body: reason.length > 0 ? `${item.toolName ?? 'tool'}: ${reason}` : `Tool call: ${item.toolName ?? 'unknown'}`,
-      data: { kind, approvalId: item.id ?? '', toolName: item.toolName ?? '' },
+      data,
     }
   }
   if (kind === 'question') {
     const item = payload as { id?: string; sessionId?: string; questions?: Array<{ question?: string }> }
+    const data: Record<string, string> = {
+      kind,
+      questionId: item.id ?? '',
+      sessionId: item.sessionId ?? '',
+    }
+    if (hostId.length > 0) data.hostId = hostId
     return {
       title: 'dsh asks a question',
       body: truncate(item.questions?.[0]?.question ?? 'Open the app to answer', 160),
-      data: { kind, questionId: item.id ?? '', sessionId: item.sessionId ?? '' },
+      data,
     }
   }
   const item = payload as { sessionId?: string; title?: string }
+  const data: Record<string, string> = { kind, sessionId: item.sessionId ?? '' }
+  if (hostId.length > 0) data.hostId = hostId
   return {
     title: 'dsh finished',
     body: item.title ?? 'The agent finished its turn',
-    data: { kind, sessionId: item.sessionId ?? '' },
+    data,
   }
 }
 
