@@ -320,6 +320,7 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | GET | `/sessions/:id/events` | SSE follow stream (snapshot + events) |
 | POST | `/sessions/:id/prompt` | Send text (`queue` or `steer`) |
 | POST | `/sessions/:id/rename` | Rename |
+| POST | `/sessions/:id/fork` | Create a child Session at an optional inclusive `atSeq` prefix |
 | POST | `/sessions/:id/cancel` | Stop the current turn |
 | GET | `/sessions/:id/open` | Escape-hatch browser URL |
 | GET | `/events` | Global SSE: approvals, questions, sessions, turn end |

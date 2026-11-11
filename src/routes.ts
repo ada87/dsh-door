@@ -387,6 +387,26 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
 
   router.add({
     method: 'POST',
+    pattern: '/sessions/:id/fork',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { atSeq?: unknown }
+      if (body.atSeq !== undefined && (!Number.isSafeInteger(body.atSeq) || (body.atSeq as number) < 0)) {
+        throw new HttpError(400, 'invalid-fork-seq', 'atSeq must be a non-negative safe integer')
+      }
+      if (typeof deps.ctx.sessionController.fork !== 'function') {
+        throw new HttpError(501, 'fork-unavailable', 'this dsh version does not expose session/fork')
+      }
+      const forked = await deps.sessions.fork(
+        rc.params.id!,
+        typeof body.atSeq === 'number' ? body.atSeq : undefined,
+      )
+      sendJson(rc.res, 201, forked)
+    },
+  })
+
+  router.add({
+    method: 'POST',
     pattern: '/sessions/:id/cancel',
     auth: 'device',
     handler: (rc) => {

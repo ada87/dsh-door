@@ -140,6 +140,8 @@ export interface SessionControllerService {
   list(request: { cursor?: string }, signal: AbortSignal): Promise<SessionListValue>
   create(request: { cwd?: string; workspaceId?: string; agentPreset?: string; sessionId?: string }): Promise<{ sessionId: string }>
   rename(request: { sessionId: string; title: string }): Promise<{ title: string; seq: number }>
+  /** Present in current dsh; older 0.2.1 profiles may not expose it. */
+  fork?(request: { sessionId: string; atSeq?: number }): Promise<{ sessionId: string }>
   page(request: {
     address: SessionAddress
     beforeSeq?: number
