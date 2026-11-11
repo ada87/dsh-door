@@ -157,6 +157,8 @@ export function normalizeConfig(input: Partial<Config> | undefined): Config {
     dshVersionRange: raw.dshVersionRange ?? '>=0.2.1-rc.4 <0.3.0',
     push: {
       provider: push.provider ?? 'none',
+      relayUrl: push.relayUrl,
+      relayHostToken: push.relayHostToken,
       fcmServiceAccountJson: push.fcmServiceAccountJson,
       fcmProjectId: push.fcmProjectId,
       apnsKey: push.apnsKey,
