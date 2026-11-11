@@ -20,6 +20,7 @@ import type {
 } from './protocol.js'
 import { PROTOCOL_VERSION } from './protocol.js'
 import type { SessionFacade } from './sessions.js'
+import { listSchedules } from './schedules.js'
 import type { SseHub } from './streams.js'
 import type { TerminalEvent, TerminalManager } from './terminal.js'
 import { newId, shortError } from './util.js'
@@ -257,6 +258,16 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
       await deps.devices.clearPush(rc.device!.deviceId)
       await deps.push.unregisterDevice(rc.device!.deviceId)
       sendNoContent(rc.res)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/schedules',
+    auth: 'device',
+    handler: async (rc) => {
+      const result = await listSchedules(deps.ctx, rc.signal)
+      sendJson(rc.res, 200, result)
     },
   })
 
