@@ -24,6 +24,8 @@ export interface PublicRoute {
   pattern: string
   /** Authentication requirement; `public` routes still pass Host/origin checks. */
   auth: 'device' | 'public'
+  /** Optional route-specific JSON budget (for example, bounded WAV base64). */
+  maxBodyBytes?: number
   handler(context: RouteContext): Promise<void> | void
 }
 
@@ -124,7 +126,7 @@ export class HttpRouter {
       }
       // Read the body only after authentication: an anonymous caller cannot
       // spend the body budget or reach JSON parsing.
-      const body = await this.readBody(req)
+      const body = await this.readBody(req, route.maxBodyBytes ?? this.config.maxBodyBytes)
       const controller = new AbortController()
       let closed = false
       const onClose = (): void => {
@@ -215,7 +217,7 @@ export class HttpRouter {
     if (pathname === '/pair') return
   }
 
-  private async readBody(req: HostRequest): Promise<unknown> {
+  private async readBody(req: HostRequest, maxBodyBytes: number): Promise<unknown> {
     const method = req.method ?? 'GET'
     if (method === 'GET' || method === 'HEAD') return undefined
     const chunks: Buffer[] = []
@@ -227,8 +229,8 @@ export class HttpRouter {
     for await (const chunk of stream) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
       total += buffer.byteLength
-      if (total > this.config.maxBodyBytes) {
-        throw new HttpError(413, 'body-too-large', `request body exceeds ${this.config.maxBodyBytes} bytes`)
+      if (total > maxBodyBytes) {
+        throw new HttpError(413, 'body-too-large', `request body exceeds ${maxBodyBytes} bytes`)
       }
       chunks.push(buffer)
     }

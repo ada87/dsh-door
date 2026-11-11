@@ -22,6 +22,7 @@ import type {
 import { PROTOCOL_VERSION } from './protocol.js'
 import type { SessionFacade } from './sessions.js'
 import { listSchedules } from './schedules.js'
+import { speechCatalog, transcribeSpeech } from './speech.js'
 import type { SseHub } from './streams.js'
 import type { TerminalEvent, TerminalManager } from './terminal.js'
 import { newId, shortError } from './util.js'
@@ -259,6 +260,35 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
       await deps.devices.clearPush(rc.device!.deviceId)
       await deps.push.unregisterDevice(rc.device!.deviceId)
       sendNoContent(rc.res)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/speech',
+    auth: 'device',
+    handler: (rc) => {
+      sendJson(rc.res, 200, speechCatalog(deps.ctx))
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/speech/transcribe',
+    auth: 'device',
+    // 4 MiB WAV becomes roughly 5.33 MiB of canonical base64 plus JSON.
+    maxBodyBytes: 6 * 1024 * 1024,
+    handler: async (rc) => {
+      const body = rc.body as { audioBase64?: unknown; providerId?: unknown; language?: unknown } | undefined
+      if (body === undefined || typeof body.audioBase64 !== 'string') {
+        throw new HttpError(400, 'empty-audio', 'audioBase64 is required')
+      }
+      const result = await transcribeSpeech(deps.ctx, {
+        audioBase64: body.audioBase64,
+        ...(typeof body.providerId === 'string' && body.providerId.length > 0 ? { providerId: body.providerId } : {}),
+        ...(typeof body.language === 'string' && body.language.length > 0 ? { language: body.language } : {}),
+      }, rc.signal)
+      sendJson(rc.res, 200, result)
     },
   })
 

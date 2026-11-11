@@ -304,6 +304,8 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | DELETE | `/devices/:id` | Revoke a device |
 | POST | `/push/register` | Register an FCM/APNs token |
 | DELETE | `/push` | Remove this device's push token |
+| GET | `/speech` | Host speech Provider readiness; requires the experimental speech API bundle |
+| POST | `/speech/transcribe` | Transcribe one canonical base64 WAV without submitting a Session prompt |
 | GET | `/schedules` | Read-only automation catalog; `available: false` when the profile has no schedule service |
 | GET | `/sessions` | Session list with title projections and optional `vitals` (context %, tokens, turns, todos, goal, plan, model) |
 | POST | `/sessions` | Create/reuse a blank Session |
