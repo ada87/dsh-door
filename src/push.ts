@@ -51,11 +51,55 @@ export class PushManager {
 
   isConfigured(): boolean {
     const push = this.push
+    if (push.provider === 'relay') {
+      return typeof push.relayUrl === 'string' && push.relayUrl.length > 0
+        && typeof push.relayHostToken === 'string' && push.relayHostToken.length > 0
+    }
     if (push.provider === 'fcm') return typeof push.fcmServiceAccountJson === 'string' && push.fcmServiceAccountJson.length > 0
     if (push.provider === 'apns') {
       return typeof push.apnsKey === 'string' && typeof push.apnsKeyId === 'string' && typeof push.apnsTeamId === 'string' && typeof push.apnsTopic === 'string'
     }
     return false
+  }
+
+  /** Register a device token with the relay (direct modes are a no-op). */
+  async registerDevice(deviceId: string, provider: 'fcm' | 'apns', token: string): Promise<void> {
+    const push = this.push
+    if (push.provider !== 'relay' || push.relayUrl === undefined || push.relayHostToken === undefined) return
+    try {
+      const response = await fetch(`${push.relayUrl.replace(/\/+$/, '')}/v1/devices`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${push.relayHostToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ deviceId, provider, pushToken: token, appVersion: '0.1.2' }),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`relay ${response.status}: ${text.slice(0, 200)}`)
+      }
+    } catch (error) {
+      this.logger.warn(`[dsh-door] relay device registration failed: ${shortError(error)}`)
+    }
+  }
+
+  /** Remove a device binding from the relay. */
+  async unregisterDevice(deviceId: string): Promise<void> {
+    const push = this.push
+    if (push.provider !== 'relay' || push.relayUrl === undefined || push.relayHostToken === undefined) return
+    try {
+      const response = await fetch(`${push.relayUrl.replace(/\/+$/, '')}/v1/devices/${encodeURIComponent(deviceId)}`, {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${push.relayHostToken}` },
+      })
+      if (!response.ok && response.status !== 404) {
+        const text = await response.text()
+        throw new Error(`relay ${response.status}: ${text.slice(0, 200)}`)
+      }
+    } catch (error) {
+      this.logger.warn(`[dsh-door] relay device removal failed: ${shortError(error)}`)
+    }
   }
 
   notify(kind: 'approval' | 'question' | 'turn-end', payload: unknown): void {
@@ -71,6 +115,10 @@ export class PushManager {
   }
 
   private async send(message: PushPayload): Promise<void> {
+    if (this.push.provider === 'relay') {
+      await this.sendRelay(message)
+      return
+    }
     if (this.push.provider === 'fcm') {
       const targets = this.devices.pushTargets('fcm')
       await Promise.all(targets.map(target => this.sendFcm(target.token, message)))
@@ -79,6 +127,33 @@ export class PushManager {
     if (this.push.provider === 'apns') {
       const targets = this.devices.pushTargets('apns')
       await Promise.all(targets.map(target => this.sendApns(target.token, message)))
+    }
+  }
+
+  private async sendRelay(message: PushPayload): Promise<void> {
+    const push = this.push
+    if (push.relayUrl === undefined || push.relayHostToken === undefined) {
+      throw new Error('relay URL or host token is missing')
+    }
+    const kind = message.data.kind ?? 'turn-end'
+    const idempotency = message.data.approvalId || message.data.questionId || message.data.sessionId || ''
+    const response = await fetch(`${push.relayUrl.replace(/\/+$/, '')}/v1/notify`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${push.relayHostToken}`,
+        'content-type': 'application/json',
+        ...(idempotency.length > 0 ? { 'idempotency-key': `${kind}:${idempotency}` } : {}),
+      },
+      body: JSON.stringify({
+        kind,
+        title: message.title,
+        body: message.body,
+        data: message.data,
+      }),
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(`relay ${response.status}: ${text.slice(0, 300)}`)
     }
   }
 

@@ -6,7 +6,11 @@ import Schema from '@deepseek-ai/schemastery'
 
 export interface PushConfig {
   /** Push transport. `none` disables outbound notifications entirely. */
-  provider: 'none' | 'fcm' | 'apns'
+  provider: 'none' | 'fcm' | 'apns' | 'relay'
+  /** Relay base URL, e.g. https://push.example.com. */
+  relayUrl?: string
+  /** Host token issued by the relay's /v1/hosts enrollment. */
+  relayHostToken?: string
   /** FCM v1 service-account JSON (the whole JSON document as a string). */
   fcmServiceAccountJson?: string
   /** FCM project id; read from the service account when omitted. */
@@ -113,7 +117,9 @@ export const Config: Schema<Config> = Schema.object({
   rateLimitMax: Schema.number().default(240),
   dshVersionRange: Schema.string().default('>=0.2.1-rc.4 <0.3.0'),
   push: Schema.object({
-    provider: Schema.union(['none', 'fcm', 'apns'] as const).default('none'),
+    provider: Schema.union(['none', 'fcm', 'apns', 'relay'] as const).default('none'),
+    relayUrl: Schema.string(),
+    relayHostToken: Schema.string(),
     fcmServiceAccountJson: Schema.string(),
     fcmProjectId: Schema.string(),
     apnsKey: Schema.string(),

@@ -239,11 +239,18 @@ the app probes `/dsh-door/health`, and pairings live under `dsh-door/*`.
     rateLimitMax: 240
     dshVersionRange: '>=0.2.1-rc.4 <0.3.0'
     push:
-      provider: none                    # none | fcm | apns
+      provider: none                    # none | fcm | apns | relay
+      # provider: relay
+      # relayUrl: https://push.example.com
+      # relayHostToken: dshr_...
       notifyTurnEnd: true
       notifyApproval: true
       notifyQuestion: true
 ```
+
+`relay` mode sends only the notification payload and host token to your relay;
+the relay holds the FCM/APNs credentials. Device tokens are registered with the
+relay automatically when the app calls `POST /push/register`.
 
 Push credentials are BYO. Put secrets in the dsh credential store under the
 owner-scoped record `dsh-door/push` when possible; the plugin reads that record

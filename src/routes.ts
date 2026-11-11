@@ -244,6 +244,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
       }
       const updated = await deps.devices.setPush(rc.device!.deviceId, { provider, token, updatedAt: Date.now() })
       if (!updated) throw new HttpError(404, 'device-not-found', 'no such device')
+      await deps.push.registerDevice(rc.device!.deviceId, provider, token)
       sendJson(rc.res, 200, { accepted: true, provider })
     },
   })
@@ -254,6 +255,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     auth: 'device',
     handler: async (rc) => {
       await deps.devices.clearPush(rc.device!.deviceId)
+      await deps.push.unregisterDevice(rc.device!.deviceId)
       sendNoContent(rc.res)
     },
   })
