@@ -644,6 +644,27 @@ test('debug routes create and resolve synthetic approvals and questions', async 
   }
 })
 
+test('each device can update its push subscriptions', async () => {
+  const headers = { authorization: `Bearer ${state.token}`, 'content-type': 'application/json' }
+  const subscriptions = { approval: true, question: false, turnEnd: false }
+  const updated = await fetch(`${state.base}/push/subscriptions`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(subscriptions),
+  })
+  assert.equal(updated.status, 200)
+  const devices = await fetch(`${state.base}/devices`, { headers })
+  const body = await devices.json() as { current: string; items: Array<{ deviceId: string; subscriptions: typeof subscriptions }> }
+  assert.deepEqual(body.items.find(item => item.deviceId === body.current)?.subscriptions, subscriptions)
+
+  const restored = await fetch(`${state.base}/push/subscriptions`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ approval: true, question: true, turnEnd: true }),
+  })
+  assert.equal(restored.status, 200)
+})
+
 test('revoking a device closes its open event streams', async () => {
   const admin = await fetch(`${state.base}/admin/pair-code`, {
     method: 'POST',

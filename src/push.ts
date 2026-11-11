@@ -2,7 +2,7 @@ import { createPrivateKey, createSign, sign as cryptoSign } from 'node:crypto'
 import { connect } from 'node:http2'
 import type { Config, PushConfig } from './config.js'
 import type { CredentialProviderService } from './host.js'
-import type { DeviceStore } from './devices.js'
+import type { DeviceStore, PushKind } from './devices.js'
 import { shortError } from './util.js'
 
 export interface PushPayload {
@@ -102,41 +102,45 @@ export class PushManager {
     }
   }
 
-  notify(kind: 'approval' | 'question' | 'turn-end', payload: unknown): void {
+  notify(kind: PushKind, payload: unknown): void {
     if (!this.isConfigured()) return
     const push = this.push
     if (kind === 'approval' && !push.notifyApproval) return
     if (kind === 'question' && !push.notifyQuestion) return
     if (kind === 'turn-end' && !push.notifyTurnEnd) return
     const message = render(kind, payload, this.hostId)
-    void this.send(message).catch((error: unknown) => {
+    void this.send(message, kind).catch((error: unknown) => {
       this.logger.warn(`[dsh-door] push failed: ${shortError(error)}`)
     })
   }
 
-  private async send(message: PushPayload): Promise<void> {
+  private async send(message: PushPayload, kind: PushKind): Promise<void> {
     if (this.push.provider === 'relay') {
-      await this.sendRelay(message)
+      await this.sendRelay(message, kind)
       return
     }
     if (this.push.provider === 'fcm') {
-      const targets = this.devices.pushTargets('fcm')
+      const targets = this.devices.pushTargets('fcm', kind)
       await Promise.all(targets.map(target => this.sendFcm(target.token, message)))
       return
     }
     if (this.push.provider === 'apns') {
-      const targets = this.devices.pushTargets('apns')
+      const targets = this.devices.pushTargets('apns', kind)
       await Promise.all(targets.map(target => this.sendApns(target.token, message)))
     }
   }
 
-  private async sendRelay(message: PushPayload): Promise<void> {
+  private async sendRelay(message: PushPayload, kind: PushKind): Promise<void> {
     const push = this.push
     if (push.relayUrl === undefined || push.relayHostToken === undefined) {
       throw new Error('relay URL or host token is missing')
     }
-    const kind = message.data.kind ?? 'turn-end'
-    const idempotency = message.data.approvalId || message.data.questionId || message.data.sessionId || ''
+    const deviceIds = this.devices.pushDevices(kind).map(device => device.deviceId)
+    // No subscribed device means no relay request at all.
+    if (deviceIds.length === 0) return
+    // Turn-end is scoped to one completed turn, not the whole session. Without
+    // eventId, omitting the header is safer than suppressing every later turn.
+    const idempotency = message.data.approvalId || message.data.questionId || message.data.eventId || ''
     const response = await fetch(`${push.relayUrl.replace(/\/+$/, '')}/v1/notify`, {
       method: 'POST',
       headers: {
@@ -146,6 +150,7 @@ export class PushManager {
       },
       body: JSON.stringify({
         kind,
+        deviceIds,
         title: message.title,
         body: message.body,
         data: message.data,
@@ -326,8 +331,9 @@ function render(kind: 'approval' | 'question' | 'turn-end', payload: unknown, ho
       data,
     }
   }
-  const item = payload as { sessionId?: string; title?: string }
+  const item = payload as { sessionId?: string; title?: string; eventId?: string }
   const data: Record<string, string> = { kind, sessionId: item.sessionId ?? '' }
+  if (item.eventId !== undefined && item.eventId.length > 0) data.eventId = item.eventId
   if (hostId.length > 0) data.hostId = hostId
   return {
     title: 'dsh finished',

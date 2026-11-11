@@ -84,6 +84,12 @@ export interface DeviceInfo {
   lastSeenAt: number
   /** Authorities this device paired through. */
   authorities: string[]
+  /** Per-device outbound notification subscriptions. */
+  subscriptions: {
+    approval: boolean
+    question: boolean
+    turnEnd: boolean
+  }
   push?: {
     provider: 'fcm' | 'apns'
     token: string

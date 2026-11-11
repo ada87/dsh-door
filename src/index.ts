@@ -12,7 +12,7 @@ import { createSessionFacade, readProjections } from './sessions.js'
 import { SseHub } from './streams.js'
 import { TerminalManager } from './terminal.js'
 import { checkDshVersion } from './version.js'
-import { formatPairingCode, shortError } from './util.js'
+import { formatPairingCode, newId, shortError } from './util.js'
 
 export { Config }
 export type { Config as PluginConfig }
@@ -174,9 +174,17 @@ function registerSessionNotifications(
     running.set(sessionId, isRunning === true)
     hub.broadcast('session', { action: 'status', sessionId, running: isRunning === true })
     if (wasRunning && isRunning !== true) {
-      hub.broadcast('turn-end', { sessionId, time: Date.now() })
+      const eventId = newId()
+      hub.broadcast('turn-end', { sessionId, time: Date.now(), eventId })
+      // A connected app receives the SSE event and decides whether to show an
+      // in-app toast. Only an app with no live connection needs a system push.
+      if (hub.hasClients()) return
       void sessions.titleOf(sessionId, new AbortController().signal)
-        .then(title => push.notify('turn-end', { sessionId, title: title ?? undefined }))
+        .then(title => {
+          // The title lookup is asynchronous; recheck so reconnecting while it
+          // is in flight does not produce a duplicate system notification.
+          if (!hub.hasClients()) push.notify('turn-end', { sessionId, title: title ?? undefined, eventId })
+        })
         .catch((error: unknown) => logger.warn(`[dsh-door] turn-end notification failed: ${shortError(error)}`))
     }
   }, { global: true })

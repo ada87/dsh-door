@@ -252,6 +252,8 @@ the app probes `/dsh-door/health`, and pairings live under `dsh-door/*`.
 the relay holds the FCM/APNs credentials. Device tokens are registered with the
 relay automatically when the app calls `POST /push/register`.
 
+The `notify*` config values are host-wide defaults. Each device can then set its own `approval`, `question` and `turnEnd` subscriptions with `PUT /push/subscriptions`; both direct sending and relay mode filter unsubscribed devices. Turn-end pushes are sent only when no app has a live global SSE connection. A connected app handles the event locally instead.
+
 Push credentials are BYO. Put secrets in the dsh credential store under the
 owner-scoped record `dsh-door/push` when possible; the plugin reads that record
 first and falls back to configuration:
@@ -303,6 +305,7 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | GET | `/devices` | Paired devices |
 | DELETE | `/devices/:id` | Revoke a device |
 | POST | `/push/register` | Register an FCM/APNs token |
+| PUT | `/push/subscriptions` | Set this device's `approval` / `question` / `turnEnd` subscriptions |
 | DELETE | `/push` | Remove this device's push token |
 | GET | `/speech` | Host speech Provider readiness; requires the experimental speech API bundle |
 | POST | `/speech/transcribe` | Transcribe one canonical base64 WAV without submitting a Session prompt |

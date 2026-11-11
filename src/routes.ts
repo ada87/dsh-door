@@ -253,6 +253,22 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
   })
 
   router.add({
+    method: 'PUT',
+    pattern: '/push/subscriptions',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = rc.body as { approval?: unknown; question?: unknown; turnEnd?: unknown } | undefined
+      if (typeof body?.approval !== 'boolean' || typeof body.question !== 'boolean' || typeof body.turnEnd !== 'boolean') {
+        throw new HttpError(400, 'bad-push-subscriptions', 'approval, question and turnEnd must be booleans')
+      }
+      const subscriptions = { approval: body.approval, question: body.question, turnEnd: body.turnEnd }
+      const updated = await deps.devices.setSubscriptions(rc.device!.deviceId, subscriptions)
+      if (!updated) throw new HttpError(404, 'device-not-found', 'no such device')
+      sendJson(rc.res, 200, { accepted: true, subscriptions })
+    },
+  })
+
+  router.add({
     method: 'DELETE',
     pattern: '/push',
     auth: 'device',

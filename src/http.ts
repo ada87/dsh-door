@@ -19,7 +19,7 @@ export interface RouteContext {
 }
 
 export interface PublicRoute {
-  method: 'GET' | 'POST' | 'DELETE'
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   /** Pattern segments; `:name` captures one segment. */
   pattern: string
   /** Authentication requirement; `public` routes still pass Host/origin checks. */

@@ -4,10 +4,28 @@ import { fingerprint, safeEqual, sha256 } from './util.js'
 /** Credential record key owned by this plugin. */
 const DEVICE_RECORD_KEY = 'dsh-door/devices' as unknown
 
+export type PushKind = 'approval' | 'question' | 'turn-end'
+
+export interface PushSubscriptions {
+  approval: boolean
+  question: boolean
+  turnEnd: boolean
+}
+
+export const DEFAULT_PUSH_SUBSCRIPTIONS: PushSubscriptions = {
+  approval: true,
+  question: true,
+  turnEnd: true,
+}
+
 export interface DevicePushRegistration {
   provider: 'fcm' | 'apns'
   token: string
   updatedAt: number
+}
+
+export interface DevicePushTarget extends DevicePushRegistration {
+  deviceId: string
 }
 
 interface StoredDevice {
@@ -19,6 +37,7 @@ interface StoredDevice {
   pairedAt: number
   lastSeenAt: number
   authorities: string[]
+  subscriptions?: PushSubscriptions
   push?: DevicePushRegistration
 }
 
@@ -36,6 +55,7 @@ export interface DeviceView {
   pairedAt: number
   lastSeenAt: number
   authorities: string[]
+  subscriptions: PushSubscriptions
   push?: DevicePushRegistration
 }
 
@@ -169,6 +189,14 @@ export class DeviceStore {
     return true
   }
 
+  async setSubscriptions(deviceId: string, subscriptions: PushSubscriptions): Promise<boolean> {
+    const device = this.devices.get(deviceId)
+    if (device === undefined) return false
+    device.subscriptions = { ...subscriptions }
+    await this.persist()
+    return true
+  }
+
   async clearPush(deviceId: string): Promise<void> {
     const device = this.devices.get(deviceId)
     if (device === undefined) return
@@ -176,11 +204,16 @@ export class DeviceStore {
     await this.persist()
   }
 
-  /** Devices that carry an outbound push registration for one provider. */
-  pushTargets(provider: 'fcm' | 'apns'): DevicePushRegistration[] {
+  /** Registered devices that opted into this notification kind. */
+  pushDevices(kind: PushKind): DevicePushTarget[] {
     return [...this.devices.values()]
-      .map(device => device.push)
-      .filter((push): push is DevicePushRegistration => push !== undefined && push.provider === provider)
+      .filter(device => device.push !== undefined && subscriptionsOf(device)[subscriptionKey(kind)])
+      .map(device => ({ ...device.push!, deviceId: device.deviceId }))
+  }
+
+  /** Devices that carry an outbound push registration for one provider. */
+  pushTargets(provider: 'fcm' | 'apns', kind: PushKind): DevicePushRegistration[] {
+    return this.pushDevices(kind).filter(push => push.provider === provider)
   }
 
   private remember(device: StoredDevice): void {
@@ -215,6 +248,14 @@ function isDeviceFile(value: unknown): value is DeviceFile {
   return candidate.version === 1 && Array.isArray(candidate.devices)
 }
 
+function subscriptionsOf(device: StoredDevice): PushSubscriptions {
+  return { ...DEFAULT_PUSH_SUBSCRIPTIONS, ...device.subscriptions }
+}
+
+function subscriptionKey(kind: PushKind): keyof PushSubscriptions {
+  return kind === 'turn-end' ? 'turnEnd' : kind
+}
+
 function toView(device: StoredDevice): DeviceView {
   return {
     deviceId: device.deviceId,
@@ -224,6 +265,7 @@ function toView(device: StoredDevice): DeviceView {
     pairedAt: device.pairedAt,
     lastSeenAt: device.lastSeenAt,
     authorities: [...device.authorities],
+    subscriptions: subscriptionsOf(device),
     push: device.push,
   }
 }
