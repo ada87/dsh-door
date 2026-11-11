@@ -308,6 +308,8 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | GET | `/sessions` | Session list with title projections and optional `vitals` (context %, tokens, turns, todos, goal, plan, model) |
 | POST | `/sessions` | Create/reuse a blank Session |
 | GET | `/sessions/:id/transcript` | Message-aligned history page |
+| GET | `/sessions/:id/files?path=` | Read-only directory listing, confined to the Session cwd (300 entries max) |
+| GET | `/sessions/:id/file?path=` | UTF-8 text preview, confined to the Session cwd (256 KiB max) |
 | GET | `/sessions/:id/state` | Running/queue state + projections |
 | GET | `/sessions/:id/terminals` | List retained phone terminals |
 | POST | `/sessions/:id/terminals` | Open a PTY in the Session working directory |

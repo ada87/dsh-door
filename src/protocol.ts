@@ -44,6 +44,7 @@ export interface HealthResponse extends ServerFacts {
     debugRoutes: boolean
     /** Whether the Host has a subprocess provider for the phone terminal. */
     terminal: boolean
+    files: boolean
     sessionEvents: 'sse'
     protocol: number
   }

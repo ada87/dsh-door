@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Config } from './config.js'
 import type { DeviceStore } from './devices.js'
+import { listWorkspaceFiles, readWorkspaceFile } from './files.js'
 import type { HostContext } from './host.js'
 import { HttpError, markStreaming, sendJson, sendNoContent, startSse, writeSse } from './http.js'
 import type { HttpRouter, RouteContext } from './http.js'
@@ -308,6 +309,33 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         ...(beforeSeq === undefined ? {} : { beforeSeq }),
         ...(maxMessages === undefined ? {} : { maxMessages }),
       }, rc.signal)
+      sendJson(rc.res, 200, response)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/sessions/:id/files',
+    auth: 'device',
+    handler: async (rc) => {
+      const response = await listWorkspaceFiles(
+        deps.ctx,
+        rc.params.id!,
+        rc.query.get('path') ?? '',
+        rc.signal,
+      )
+      sendJson(rc.res, 200, response)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/sessions/:id/file',
+    auth: 'device',
+    handler: async (rc) => {
+      const path = rc.query.get('path')
+      if (path === null || path.length === 0) throw new HttpError(400, 'empty-path', 'path is required')
+      const response = await readWorkspaceFile(deps.ctx, rc.params.id!, path, rc.signal)
       sendJson(rc.res, 200, response)
     },
   })
@@ -689,6 +717,7 @@ function features(deps: RouteDependencies): HealthResponse['features'] {
     push: deps.push.isConfigured(),
     debugRoutes: deps.config.enableDebugRoutes,
     terminal: deps.terminals.available(),
+    files: true,
     sessionEvents: 'sse',
     protocol: PROTOCOL_VERSION,
   }
