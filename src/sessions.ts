@@ -6,7 +6,7 @@ export interface SessionFacade {
   transcript(sessionId: string, options: { beforeSeq?: number; maxMessages?: number }, signal: AbortSignal): Promise<SessionTranscriptResponse>
   state(sessionId: string, signal: AbortSignal): Promise<SessionStateResponse>
   create(input: { cwd?: string; workspaceId?: string; agentPreset?: string }): Promise<{ sessionId: string }>
-  prompt(sessionId: string, input: { requestId: string; text: string; mode: 'queue' | 'steer'; clientTimeZone?: string }, signal: AbortSignal): Promise<{ accepted: true }>
+  prompt(sessionId: string, input: { requestId: string; text: string; mode: 'queue' | 'steer'; clientTimeZone?: string; attachments?: string[] }, signal: AbortSignal): Promise<{ accepted: true }>
   rename(sessionId: string, title: string): Promise<{ title: string; seq: number }>
   fork(sessionId: string, atSeq?: number): Promise<{ sessionId: string }>
   cancel(sessionId: string): { accepted: true }
@@ -145,11 +145,16 @@ export function createSessionFacade(ctx: HostContext): SessionFacade {
     },
 
     prompt(sessionId, input, signal) {
+      const attachments = (input.attachments ?? [])
+        .filter(receiptId => receiptId.length > 0)
+        .map(receiptId => ({ type: 'file' as const, receiptId }))
+      const content: Array<{ type: 'text'; text: string } | { type: 'file'; receiptId: string }> = [...attachments]
+      if (input.text.trim().length > 0) content.push({ type: 'text', text: input.text })
       return controller.prompt({
         requestId: input.requestId as never,
         sessionId: sessionId as never,
         mode: input.mode,
-        content: [{ type: 'text', text: input.text }],
+        content,
         ...(input.clientTimeZone === undefined ? {} : { clientTimeZone: input.clientTimeZone }),
       }, signal)
     },

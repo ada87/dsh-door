@@ -163,7 +163,7 @@ export interface SessionControllerService {
     requestId: string
     sessionId: string
     mode: 'queue' | 'steer'
-    content: Array<{ type: 'text'; text: string }>
+    content: Array<{ type: 'text'; text: string } | { type: 'file'; receiptId: string }>
     clientTimeZone?: string
   }, signal: AbortSignal): Promise<{ accepted: true }>
   cancel(request: { sessionId: string }): { accepted: true }

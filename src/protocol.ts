@@ -45,6 +45,14 @@ export interface HealthResponse extends ServerFacts {
     /** Whether the Host has a subprocess provider for the phone terminal. */
     terminal: boolean
     files: boolean
+    /** Whether the Host exposes the workspace registry for the new-session picker. */
+    workspaces: boolean
+    /** Whether the Host exposes agent presets for the new-session picker. */
+    agentPresets: boolean
+    /** Whether the Host exposes the LLM catalog for the model picker. */
+    models: boolean
+    /** Whether the Host exposes staged file/image uploads for the composer + button. */
+    uploads: boolean
     sessionEvents: 'sse'
     protocol: number
   }

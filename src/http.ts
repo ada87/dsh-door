@@ -26,6 +26,8 @@ export interface PublicRoute {
   auth: 'device' | 'public'
   /** Optional route-specific JSON budget (for example, bounded WAV base64). */
   maxBodyBytes?: number
+  /** Return the request body as a raw Buffer instead of parsing JSON (binary uploads). */
+  rawBody?: boolean
   handler(context: RouteContext): Promise<void> | void
 }
 
@@ -126,7 +128,7 @@ export class HttpRouter {
       }
       // Read the body only after authentication: an anonymous caller cannot
       // spend the body budget or reach JSON parsing.
-      const body = await this.readBody(req, route.maxBodyBytes ?? this.config.maxBodyBytes)
+      const body = await this.readBody(req, route.maxBodyBytes ?? this.config.maxBodyBytes, route.rawBody === true)
       const controller = new AbortController()
       let closed = false
       const onClose = (): void => {
@@ -217,7 +219,7 @@ export class HttpRouter {
     if (pathname === '/pair') return
   }
 
-  private async readBody(req: HostRequest, maxBodyBytes: number): Promise<unknown> {
+  private async readBody(req: HostRequest, maxBodyBytes: number, rawBody = false): Promise<unknown> {
     const method = req.method ?? 'GET'
     if (method === 'GET' || method === 'HEAD') return undefined
     const chunks: Buffer[] = []
@@ -235,6 +237,7 @@ export class HttpRouter {
       chunks.push(buffer)
     }
     if (total === 0) return undefined
+    if (rawBody) return Buffer.concat(chunks)
     const text = Buffer.concat(chunks).toString('utf8')
     try {
       return JSON.parse(text) as unknown

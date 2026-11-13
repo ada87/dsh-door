@@ -1,5 +1,18 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import {
+  agentPresetsAvailable,
+  currentSessionModel,
+  listAgentPresets,
+  listWorkspaces,
+  modelCatalog,
+  modelsAvailable,
+  selectSessionModel,
+  uploadAttachment,
+  uploadsAvailable,
+  workspacesAvailable,
+  type ModelSelection,
+} from './catalogs.js'
 import type { Config } from './config.js'
 import type { DeviceStore } from './devices.js'
 import { listWorkspaceFiles, readWorkspaceFile } from './files.js'
@@ -346,6 +359,75 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
 
   router.add({
     method: 'GET',
+    pattern: '/workspaces',
+    auth: 'device',
+    handler: (rc) => {
+      sendJson(rc.res, 200, { items: listWorkspaces(deps.ctx) })
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/agent-presets',
+    auth: 'device',
+    handler: async (rc) => {
+      sendJson(rc.res, 200, await listAgentPresets(deps.ctx))
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/models',
+    auth: 'device',
+    handler: async (rc) => {
+      sendJson(rc.res, 200, await modelCatalog(deps.ctx))
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/sessions/:id/model',
+    auth: 'device',
+    handler: async (rc) => {
+      const catalog = await modelCatalog(deps.ctx)
+      const resolved = await deps.ctx.sessionController.resolveAgent(rc.params.id!)
+      if (!('agent' in resolved) || resolved.agent === undefined) {
+        throw new HttpError(404, 'agent-not-found', 'the session has no live agent')
+      }
+      const agent = resolved.agent as unknown as Parameters<typeof currentSessionModel>[0]
+      sendJson(rc.res, 200, { selection: currentSessionModel(agent, catalog.default) })
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/sessions/:id/model',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { provider?: unknown; model?: unknown; reasoningEffort?: unknown }
+      if (typeof body.provider !== 'string' || body.provider.length === 0 || typeof body.model !== 'string' || body.model.length === 0) {
+        throw new HttpError(400, 'bad-model-selection', 'provider and model are required')
+      }
+      const selection: ModelSelection = {
+        provider: body.provider,
+        model: body.model,
+        ...(typeof body.reasoningEffort === 'string' && body.reasoningEffort.length > 0 ? { reasoningEffort: body.reasoningEffort } : {}),
+      }
+      const resolved = await deps.ctx.sessionController.resolveAgent(rc.params.id!)
+      if (!('agent' in resolved) || resolved.agent === undefined) {
+        throw new HttpError(404, 'agent-not-found', 'the session has no live agent')
+      }
+      try {
+        await selectSessionModel(deps.ctx, resolved.agent as unknown as Parameters<typeof selectSessionModel>[1], selection)
+      } catch (error) {
+        throw new HttpError(400, 'model-selection-rejected', error instanceof Error ? error.message : String(error))
+      }
+      sendJson(rc.res, 200, { selection })
+    },
+  })
+
+  router.add({
+    method: 'GET',
     pattern: '/sessions/:id/transcript',
     auth: 'device',
     handler: async (rc) => {
@@ -401,9 +483,20 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     pattern: '/sessions/:id/prompt',
     auth: 'device',
     handler: async (rc) => {
-      const body = rc.body as { text?: unknown; requestId?: unknown; mode?: unknown; clientTimeZone?: unknown } | undefined
-      if (body === undefined || typeof body.text !== 'string' || body.text.trim().length === 0) {
-        throw new HttpError(400, 'empty-prompt', 'text must contain non-whitespace content')
+      const body = rc.body as { text?: unknown; requestId?: unknown; mode?: unknown; clientTimeZone?: unknown; attachments?: unknown } | undefined
+      if (body === undefined || typeof body.text !== 'string') {
+        throw new HttpError(400, 'bad-prompt', 'text is required')
+      }
+      const attachments = Array.isArray(body.attachments)
+        ? body.attachments
+            .filter((item): item is { receiptId: string } =>
+              typeof item === 'object' && item !== null
+              && typeof (item as { receiptId?: unknown }).receiptId === 'string'
+              && (item as { receiptId: string }).receiptId.length > 0)
+            .map(item => item.receiptId)
+        : []
+      if (body.text.trim().length === 0 && attachments.length === 0) {
+        throw new HttpError(400, 'empty-prompt', 'text or at least one attachment is required')
       }
       const mode = body.mode === 'steer' ? 'steer' : 'queue'
       const requestId = typeof body.requestId === 'string' && body.requestId.length > 0 ? body.requestId : newId()
@@ -411,9 +504,34 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         requestId,
         text: body.text,
         mode,
+        ...(attachments.length > 0 ? { attachments } : {}),
         ...(typeof body.clientTimeZone === 'string' ? { clientTimeZone: body.clientTimeZone } : {}),
       }, rc.signal)
       sendJson(rc.res, 202, accepted)
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/sessions/:id/uploads',
+    auth: 'device',
+    rawBody: true,
+    // dsh enforces its own per-file and per-image budgets; this only bounds the wire read.
+    maxBodyBytes: 30 * 1024 * 1024,
+    handler: async (rc) => {
+      const bytes = rc.body
+      if (!Buffer.isBuffer(bytes) || bytes.byteLength === 0) {
+        throw new HttpError(400, 'empty-upload', 'the request body must carry the file bytes')
+      }
+      const kind = rc.query.get('kind') === 'image' ? 'image' : 'file'
+      const name = rc.query.get('name') ?? undefined
+      const mediaType = rc.query.get('mediaType') ?? undefined
+      try {
+        const receipt = await uploadAttachment(deps.ctx, rc.params.id!, { kind, ...(name === undefined ? {} : { name }), ...(mediaType === undefined ? {} : { mediaType }), bytes })
+        sendJson(rc.res, 201, receipt)
+      } catch (error) {
+        throw new HttpError(400, 'upload-rejected', error instanceof Error ? error.message : String(error))
+      }
     },
   })
 
@@ -784,6 +902,10 @@ function features(deps: RouteDependencies): HealthResponse['features'] {
     debugRoutes: deps.config.enableDebugRoutes,
     terminal: deps.terminals.available(),
     files: true,
+    workspaces: workspacesAvailable(deps.ctx),
+    agentPresets: agentPresetsAvailable(deps.ctx),
+    models: modelsAvailable(deps.ctx),
+    uploads: uploadsAvailable(deps.ctx),
     sessionEvents: 'sse',
     protocol: PROTOCOL_VERSION,
   }
