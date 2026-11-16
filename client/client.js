@@ -41,7 +41,7 @@ window.__ModuleLoader__.load({
 .dd-modal{display:flex;flex-direction:column;gap:12px;width:min(380px,90vw);padding:18px;border-radius:12px;background:var(--dsw-alias-surface-primary,#fff);box-shadow:0 12px 40px rgba(0,0,0,.28)}
 .dd-modalTitle{margin:0;font-size:16px;font-weight:600;color:var(--dsw-alias-label-primary,#111)}
 .dd-modalActions{display:flex;justify-content:flex-end;gap:8px}
-.dd-modalInput{width:100%}
+.dd-modalInput{box-sizing:border-box;width:100%;max-width:100%;min-width:0}
 .dd-qr{font-size:10px;line-height:1;overflow:auto;margin:0;color:var(--dsw-alias-label-secondary);max-height:220px}
 .dd-qr-img{display:flex;justify-content:flex-start;align-self:flex-start;background:#fff;border-radius:8px;padding:8px}
 .dd-qr-img svg{width:220px;height:220px;display:block}
@@ -103,7 +103,9 @@ window.__ModuleLoader__.load({
       actions: '操作',
       revoke: '移除',
       rename: '改名',
-      renamePrompt: '新的设备名称',
+      renameTitle: '重命名设备',
+      renameDesc: '只修改显示名称，不影响已配对连接。',
+      renameEmpty: '设备名称不能为空',
       revokeConfirm: '移除设备「{name}」？它需要重新配对才能连接。',
       via: '地址',
       noDevices: '还没有设备',
@@ -142,7 +144,9 @@ window.__ModuleLoader__.load({
       actions: 'Actions',
       revoke: 'Remove',
       rename: 'Rename',
-      renamePrompt: 'New device name',
+      renameTitle: 'Rename device',
+      renameDesc: 'Only the display name changes; the pairing stays connected.',
+      renameEmpty: 'The device name cannot be empty',
       revokeConfirm: 'Remove “{name}”? It must pair again to reconnect.',
       via: 'Via',
       noDevices: 'No devices yet',
@@ -191,6 +195,9 @@ window.__ModuleLoader__.load({
           const [password, setPassword] = React.useState('')
           const [dialogError, setDialogError] = React.useState(null)
           const [busyDevice, setBusyDevice] = React.useState(null)
+          const [renameTarget, setRenameTarget] = React.useState(null)
+          const [renameValue, setRenameValue] = React.useState('')
+          const [renameError, setRenameError] = React.useState(null)
 
           React.useEffect(() => {
             let alive = true
@@ -302,16 +309,24 @@ window.__ModuleLoader__.load({
             }
           }
 
-          const renameDevice = async (device) => {
-            const current = device.deviceName || ''
-            const next = window.prompt(t('renamePrompt'), current)
-            if (next === null) return
-            const name = next.trim()
-            if (name.length === 0 || name === current) return
-            setBusyDevice(device.deviceId)
+          const openRename = (device) => {
+            setRenameValue(device.deviceName || '')
+            setRenameError(null)
+            setRenameTarget(device)
+          }
+
+          const confirmRename = async () => {
+            if (renameTarget === null) return
+            const name = renameValue.trim()
+            if (name.length === 0) {
+              setRenameError(t('renameEmpty'))
+              return
+            }
+            setBusyDevice(renameTarget.deviceId)
+            setRenameError(null)
             setError(null)
             try {
-              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(device.deviceId), {
+              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(renameTarget.deviceId), {
                 method: 'PUT',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -322,8 +337,9 @@ window.__ModuleLoader__.load({
                 throw new Error(body?.error?.message || t('operationFailed'))
               }
               setData(await response.json())
+              setRenameTarget(null)
             } catch (failure) {
-              setError(failure instanceof Error ? failure.message : String(failure))
+              setRenameError(failure instanceof Error ? failure.message : String(failure))
             } finally {
               setBusyDevice(null)
             }
@@ -389,7 +405,7 @@ window.__ModuleLoader__.load({
                           type: 'button',
                           className: 'dd-rename',
                           disabled: busyDevice === device.deviceId,
-                          onClick: () => { void renameDevice(device) },
+                          onClick: () => { openRename(device) },
                         }, t('rename')),
                       ),
                       h('span', { className: 'dd-deviceMeta' },
@@ -450,6 +466,44 @@ window.__ModuleLoader__.load({
                   size: 'sm',
                   disabled: busy,
                   onClick: () => { void (dialog === 'permanent' ? confirmPermanent() : confirmReset()) },
+                }, t('confirm')),
+              ),
+            )),
+            renameTarget === null ? null : h('div', {
+              className: 'dd-modalBackdrop',
+              onMouseDown: (event) => {
+                if (event.target === event.currentTarget) setRenameTarget(null)
+              },
+            },
+            h('div', { className: 'dd-modal', role: 'dialog', 'aria-modal': 'true' },
+              h('h3', { className: 'dd-modalTitle' }, t('renameTitle')),
+              h('p', { className: 'dd-desc' }, t('renameDesc')),
+              h(Input, {
+                className: 'dd-modalInput',
+                value: renameValue,
+                placeholder: t('renameTitle'),
+                autoFocus: true,
+                autoComplete: 'off',
+                onChange: event => setRenameValue(event.target.value.slice(0, 120)),
+                onKeyDown: (event) => {
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  void confirmRename()
+                },
+              }),
+              renameError === null ? null : h('p', { className: 'dd-error' }, renameError),
+              h('div', { className: 'dd-modalActions' },
+                h(Button, {
+                  variant: 'ghost',
+                  size: 'sm',
+                  disabled: busyDevice === renameTarget.deviceId,
+                  onClick: () => setRenameTarget(null),
+                }, t('cancel')),
+                h(Button, {
+                  variant: 'primary',
+                  size: 'sm',
+                  disabled: busyDevice === renameTarget.deviceId,
+                  onClick: () => { void confirmRename() },
                 }, t('confirm')),
               ),
             )),
