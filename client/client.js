@@ -58,7 +58,8 @@ window.__ModuleLoader__.load({
 .dd-deviceTimes{display:flex;flex-direction:column;gap:3px;text-align:right}
 .dd-deviceTime{font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary,#888);white-space:nowrap}
 .dd-deviceAction{flex:none}
-.dd-deviceAction button{white-space:nowrap}
+.dd-deviceAction button{white-space:nowrap;color:var(--dsw-alias-state-error-primary,#e5484d)!important}
+.dd-deviceAction button:hover{background:var(--dsw-alias-state-error-primary,#e5484d)!important;color:#fff!important}
 @media (max-width:640px){
   .dd-device{flex-wrap:wrap}
   .dd-deviceSide{width:100%;justify-content:space-between}
@@ -101,7 +102,6 @@ window.__ModuleLoader__.load({
       revokeConfirm: '移除设备「{name}」？它需要重新配对才能连接。',
       via: '地址',
       noDevices: '还没有设备',
-      footer: '一次性码默认 5 分钟有效。永久码会写入 dsh 凭据存储，重启后仍然有效。',
       codeLost: '登录已失效，请刷新 dsh Web UI',
       operationFailed: '操作失败',
     }
@@ -139,7 +139,6 @@ window.__ModuleLoader__.load({
       revokeConfirm: 'Remove “{name}”? It must pair again to reconnect.',
       via: 'Via',
       noDevices: 'No devices yet',
-      footer: 'One-time codes expire after 5 minutes by default. A permanent code is stored in the dsh credential store and survives restarts.',
       codeLost: 'Session expired. Reload the dsh Web UI.',
       operationFailed: 'Operation failed',
     }
@@ -372,8 +371,6 @@ window.__ModuleLoader__.load({
                   )),
               ),
             ),
-
-            h('p', { className: 'dd-desc' }, t('footer')),
 
             dialog === null ? null : h('div', {
               className: 'dd-modalBackdrop',
