@@ -121,9 +121,9 @@ the new app build rather than upgrading the old one in place.
 
 ## Pairing code in the browser
 
-Open dsh Web UI and go to **Settings → Built-in plugins → dsh-door**. The tab
-sits beside dsh-tag and uses the same slot mechanism, so it follows the Web UI
-theme and language.
+Open dsh Web UI and go to **Settings → dsh-door**, the section placed directly
+after **General** (slot `settings.section`, order `5`). It uses dsh's React
+runtime and locale dictionaries, so it follows the Web UI theme and language.
 
 The page shows:
 
@@ -133,9 +133,9 @@ The page shows:
 - buttons to generate a new one-time code, set a **fixed code**, or restore
   one-time rotation.
 
-There is no standalone HTML page. The tab is contributed by `client/client.js`
-through the `settings.plugins.tab` slot and reads two cookie-authenticated
-endpoints:
+There is no standalone HTML page. The panel is contributed by `client/client.js`
+through the `settings.section` and `settings.section.icon` slots and reads two
+cookie-authenticated endpoints:
 
 - `GET /admin/data` — current code, QR payload and device list;
 - `POST /admin/pair-code` — rotate, set or clear a fixed code.
@@ -147,7 +147,7 @@ local fallback. Without a valid dsh login the endpoints return 401.
 The browser half is part of the page's boot manifest, so after installing or
 updating the plugin, restart `dsh web` and reload the Web UI (a hard refresh,
 not just the settings tab). An already-open tab keeps the old module graph and
-will not show the tab.
+will not show the section.
 
 ### Local development without publishing
 

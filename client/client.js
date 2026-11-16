@@ -1,9 +1,9 @@
 /**
  * Browser half of dsh-door.
  *
- * Ships one surface: a tab under Settings → Built-in plugins, alongside
- * dsh-tag. The pairing panel itself is React; it reads the Host's
- * `/admin/data` and `/admin/pair-code` endpoints. There is no standalone page.
+ * Ships one surface: a top-level Settings section, ordered just after General
+ * (order 5) so it is not the first menu item. There is no standalone page; the
+ * React panel reads the Host's `/admin/data` and `/admin/pair-code` endpoints.
  *
  * This file is hand-written in the lazy-CJS factory format the dsh client
  * module system expects. build.mjs copies it to lib/client.js.
@@ -297,12 +297,34 @@ window.__ModuleLoader__.load({
           )
         }
 
-        ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
-          name: 'settings.plugins.tab',
+        ctx.slots.inject('settings.section', () => ctx.slots.register({
+          name: 'settings.section',
           id: 'dsh-door',
-          order: 10,
+          order: 5,
           label: () => t('nav'),
         }, AdminSection))
+
+        ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
+          name: 'settings.section.icon',
+          id: 'dsh-door',
+        }, ({ size = 16, active }) => h('svg', {
+          width: size,
+          height: size,
+          viewBox: '0 0 16 16',
+          'aria-hidden': true,
+        },
+        h('path', {
+          d: 'M3 2.5h7v11H3z',
+          fill: active ? 'currentColor' : 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.2,
+        }),
+        h('path', {
+          d: 'M10 3.5l3 1v9l-3-1z',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.2,
+        }))))
       },
     }
   },
