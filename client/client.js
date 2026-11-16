@@ -78,6 +78,10 @@ window.__ModuleLoader__.load({
       device: '设备',
       pairedAt: '配对时间',
       lastSeen: '最近连接',
+      actions: '操作',
+      revoke: '移除',
+      revokeConfirm: '移除设备「{name}」？它需要重新配对才能连接。',
+      via: '地址',
       noDevices: '还没有设备',
       footer: '一次性码默认 5 分钟有效。永久码会写入 dsh 凭据存储，重启后仍然有效。',
       codeLost: '登录已失效，请刷新 dsh Web UI',
@@ -109,6 +113,10 @@ window.__ModuleLoader__.load({
       device: 'Device',
       pairedAt: 'Paired',
       lastSeen: 'Last seen',
+      actions: 'Actions',
+      revoke: 'Remove',
+      revokeConfirm: 'Remove “{name}”? It must pair again to reconnect.',
+      via: 'Via',
       noDevices: 'No devices yet',
       footer: 'One-time codes expire after 5 minutes by default. A permanent code is stored in the dsh credential store and survives restarts.',
       codeLost: 'Session expired. Reload the dsh Web UI.',
@@ -139,6 +147,7 @@ window.__ModuleLoader__.load({
           const [dialog, setDialog] = React.useState(null)
           const [password, setPassword] = React.useState('')
           const [dialogError, setDialogError] = React.useState(null)
+          const [busyDevice, setBusyDevice] = React.useState(null)
 
           React.useEffect(() => {
             let alive = true
@@ -228,6 +237,28 @@ window.__ModuleLoader__.load({
             setDialog(null)
           }
 
+          const revokeDevice = async (device) => {
+            const name = device.deviceName || String(device.deviceId || '').slice(0, 12)
+            if (!window.confirm(t('revokeConfirm', { name }))) return
+            setBusyDevice(device.deviceId)
+            setError(null)
+            try {
+              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(device.deviceId), {
+                method: 'DELETE',
+                credentials: 'same-origin',
+              })
+              if (!response.ok) {
+                const body = await response.json().catch(() => null)
+                throw new Error(body?.error?.message || t('operationFailed'))
+              }
+              setData(await response.json())
+            } catch (failure) {
+              setError(failure instanceof Error ? failure.message : String(failure))
+            } finally {
+              setBusyDevice(null)
+            }
+          }
+
           const devices = Array.isArray(data?.devices) ? data.devices : []
 
           return h('section', { className: 'dd-page' },
@@ -283,20 +314,31 @@ window.__ModuleLoader__.load({
                     h('th', null, t('device')),
                     h('th', null, t('pairedAt')),
                     h('th', null, t('lastSeen')),
+                    h('th', null, t('actions')),
                   ),
                 ),
                 h('tbody', null,
                   devices.length === 0
-                    ? h('tr', null, h('td', { colSpan: 3, className: 'dd-desc' }, t('noDevices')))
+                    ? h('tr', null, h('td', { colSpan: 4, className: 'dd-desc' }, t('noDevices')))
                     : devices.map(device => h('tr', { key: String(device.deviceId) },
                       h('td', null,
                         device.deviceName || '—',
                         h('br'),
                         h('span', { className: 'dd-desc' },
-                          `${device.platform || ''} ${String(device.deviceId || '').slice(0, 12)}…`),
+                          `${device.platform || 'unknown'}${device.appVersion ? ` · app ${device.appVersion}` : ''} · ${String(device.deviceId || '').slice(0, 16)}…`),
+                        h('br'),
+                        h('span', { className: 'dd-desc' },
+                          `${t('via')}: ${Array.isArray(device.authorities) && device.authorities.length > 0 ? device.authorities.join(' / ') : '—'}`),
                       ),
                       h('td', null, new Date(device.pairedAt).toLocaleString()),
                       h('td', null, new Date(device.lastSeenAt).toLocaleString()),
+                      h('td', null,
+                        h(Button, {
+                          variant: 'ghost',
+                          size: 'sm',
+                          disabled: busyDevice === device.deviceId,
+                          onClick: () => { void revokeDevice(device) },
+                        }, t('revoke'))),
                     )),
                 ),
               ),

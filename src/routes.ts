@@ -131,6 +131,19 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
   })
 
   router.add({
+    method: 'DELETE',
+    pattern: '/admin/devices/:id',
+    auth: 'public',
+    handler: async (rc) => {
+      if (!adminAuthorized(deps, rc)) throw new HttpError(401, 'admin-unauthorized', 'open this page from an authenticated dsh browser')
+      const removed = await deps.devices.revoke(rc.params.id!)
+      if (!removed) throw new HttpError(404, 'device-not-found', 'no such device')
+      deps.hub.closeDevice(rc.params.id!)
+      sendJson(rc.res, 200, await adminData(deps))
+    },
+  })
+
+  router.add({
     method: 'GET',
     pattern: '/pair',
     auth: 'public',
@@ -1220,8 +1233,11 @@ async function adminData(deps: RouteDependencies): Promise<Record<string, unknow
       deviceId: device.deviceId,
       deviceName: device.deviceName,
       platform: device.platform,
+      appVersion: device.appVersion,
+      authorities: device.authorities,
       pairedAt: device.pairedAt,
       lastSeenAt: device.lastSeenAt,
+      push: device.push !== undefined,
     })),
   }
 }

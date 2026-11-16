@@ -722,6 +722,20 @@ test('admin page can set and clear a persisted fixed pairing code', async () => 
   })
   const autoBody = await auto.json() as { fixed: boolean }
   assert.equal(autoBody.fixed, false)
+
+  const adminData = await fetch(`${state.base}/admin/data`)
+  const listed = await adminData.json() as {
+    devices: Array<{ deviceId: string; deviceName: string; authorities: string[] }>
+  }
+  const target = listed.devices.find(device => device.deviceName === 'fixed code phone')
+  if (target === undefined) throw new Error('paired device is not listed')
+  assert.ok(Array.isArray(target.authorities), 'authorities are exposed for the admin page')
+  const revoked = await fetch(`${state.base}/admin/devices/${encodeURIComponent(target.deviceId)}`, {
+    method: 'DELETE',
+  })
+  assert.equal(revoked.status, 200)
+  const afterRevoke = await revoked.json() as { devices: Array<{ deviceId: string }> }
+  assert.equal(afterRevoke.devices.some(device => device.deviceId === target.deviceId), false)
 })
 
 test('schedule routes expose detail, history and actions', async () => {
