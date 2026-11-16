@@ -56,7 +56,7 @@ export interface Config {
   strictHostCheck: boolean
   /** One-time pairing code lifetime in milliseconds. */
   pairingTtlMs: number
-  /** Number of characters in a generated pairing code. */
+  /** Number of digits in a generated pairing code (4 by default). */
   pairingCodeLength: number
   /** Failed pairing attempts allowed per client address inside the TTL. */
   pairingMaxAttempts: number
@@ -103,7 +103,7 @@ export const Config: Schema<Config> = Schema.object({
   requireSecure: Schema.boolean().default(false),
   strictHostCheck: Schema.boolean().default(false),
   pairingTtlMs: Schema.number().default(5 * 60 * 1000),
-  pairingCodeLength: Schema.number().default(8),
+  pairingCodeLength: Schema.number().default(4),
   pairingMaxAttempts: Schema.number().default(8),
   pairingCode: Schema.string(),
   logPairingCode: Schema.boolean().default(true),
@@ -147,7 +147,7 @@ export function normalizeConfig(input: Partial<Config> | undefined): Config {
     requireSecure: raw.requireSecure ?? false,
     strictHostCheck: raw.strictHostCheck ?? false,
     pairingTtlMs: raw.pairingTtlMs ?? 5 * 60 * 1000,
-    pairingCodeLength: raw.pairingCodeLength ?? 8,
+    pairingCodeLength: raw.pairingCodeLength ?? 4,
     pairingMaxAttempts: raw.pairingMaxAttempts ?? 8,
     logPairingCode: raw.logPairingCode ?? true,
     approvalWaitTimeoutMs: raw.approvalWaitTimeoutMs ?? 2 * 60 * 1000,

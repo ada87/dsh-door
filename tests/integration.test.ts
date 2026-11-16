@@ -303,7 +303,7 @@ before(async () => {
     // defaults to trusting a valid token across address/tunnel changes.
     strictHostCheck: true,
     pairingTtlMs: 60_000,
-    pairingCodeLength: 8,
+    pairingCodeLength: 4,
     pairingMaxAttempts: 8,
     logPairingCode: false,
     approvalWaitTimeoutMs: 5000,
@@ -362,7 +362,8 @@ test('a code pairs once, then the same code is refused', async () => {
   const codeResponse = await fetch(`${state.base}/pair/code`)
   assert.equal(codeResponse.status, 200)
   const code = await codeResponse.json() as { code: string; formatted: string }
-  assert.equal(code.formatted.length, 9)
+  assert.match(code.code, /^\d{4}$/)
+  assert.equal(code.formatted, code.code)
 
   const pairBody = JSON.stringify({
     code: code.code,

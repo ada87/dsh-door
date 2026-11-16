@@ -35,7 +35,7 @@ Restart `dsh web`. The terminal prints:
 ```text
 [dsh-door] dsh 0.2.2-rc.3 satisfies >=0.2.1-rc.4 <0.3.0
 [dsh-door] routes mounted at /dsh-door (protocol 1, push none)
-[dsh-door] pairing code ABCD-EFGH — open the app, enter the server URL, then this code.
+[dsh-door] pairing code 1234 — open the app, enter the server URL, then this code.
 ```
 
 The code has a five-minute TTL by default. After a successful pairing it rotates;
@@ -234,7 +234,7 @@ the app probes `/dsh-door/health`, and pairings live under `dsh-door/*`.
     requireSecure: false                # true when the Host itself serves TLS
     strictHostCheck: false              # true binds requests to a known authority
     pairingTtlMs: 300000
-    pairingCodeLength: 8
+    pairingCodeLength: 4
     pairingMaxAttempts: 8
     approvalWaitTimeoutMs: 120000
     questionWaitTimeoutMs: 120000

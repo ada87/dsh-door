@@ -28,8 +28,8 @@ export function fingerprint(publicKey: string): string {
   return sha256(publicKey).slice(0, 32)
 }
 
-/** Generate a pairing code without visually ambiguous characters. */
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+/** Generate a numeric pairing code; four digits are easier to type on a phone. */
+const CODE_ALPHABET = '0123456789'
 
 export function generatePairingCode(length: number): string {
   const bytes = randomBytes(length)
@@ -40,8 +40,9 @@ export function generatePairingCode(length: number): string {
   return code
 }
 
-/** Render a code as `ABCD-EFGH` for reading aloud. */
+/** Render a code for reading aloud; four-digit codes stay as-is. */
 export function formatPairingCode(code: string): string {
+  if (code.length <= 4) return code
   const half = Math.ceil(code.length / 2)
   return `${code.slice(0, half)}-${code.slice(half)}`
 }
