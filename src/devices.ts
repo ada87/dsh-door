@@ -181,6 +181,15 @@ export class DeviceStore {
     return true
   }
 
+  /** Rename a paired device without changing its token or pairing. */
+  async rename(deviceId: string, name: string): Promise<boolean> {
+    const device = this.devices.get(deviceId)
+    if (device === undefined) return false
+    device.deviceName = name
+    await this.persist()
+    return true
+  }
+
   async setPush(deviceId: string, push: DevicePushRegistration): Promise<boolean> {
     const device = this.devices.get(deviceId)
     if (device === undefined) return false

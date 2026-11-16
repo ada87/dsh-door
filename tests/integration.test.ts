@@ -730,6 +730,14 @@ test('admin page can set and clear a persisted fixed pairing code', async () => 
   const target = listed.devices.find(device => device.deviceName === 'fixed code phone')
   if (target === undefined) throw new Error('paired device is not listed')
   assert.ok(Array.isArray(target.authorities), 'authorities are exposed for the admin page')
+  const renamed = await fetch(`${state.base}/admin/devices/${encodeURIComponent(target.deviceId)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Renamed phone' }),
+  })
+  assert.equal(renamed.status, 200)
+  const renamedBody = await renamed.json() as { devices: Array<{ deviceId: string; deviceName: string }> }
+  assert.equal(renamedBody.devices.find(device => device.deviceId === target.deviceId)?.deviceName, 'Renamed phone')
   const revoked = await fetch(`${state.base}/admin/devices/${encodeURIComponent(target.deviceId)}`, {
     method: 'DELETE',
   })

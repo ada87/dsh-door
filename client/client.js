@@ -52,7 +52,10 @@ window.__ModuleLoader__.load({
 .dd-device{display:flex;gap:20px;align-items:flex-start;justify-content:space-between;padding:14px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.18))}
 .dd-device:last-child{border-bottom:0}
 .dd-deviceInfo{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.dd-deviceNameRow{display:flex;align-items:center;gap:8px;min-width:0}
 .dd-deviceName{font-size:14px;color:var(--dsw-alias-label-primary,#111)}
+.dd-rename{padding:0;border:0;background:transparent;color:var(--dsw-alias-link,var(--dsw-alias-brand-primary,#3d7bfd));font:inherit;font-size:12px;cursor:pointer}
+.dd-rename:disabled{opacity:.45;cursor:default}
 .dd-deviceMeta{font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary,#888);word-break:break-all}
 .dd-deviceSide{display:flex;align-items:center;gap:20px;flex:none}
 .dd-deviceTimes{display:flex;flex-direction:column;gap:3px;text-align:right}
@@ -99,6 +102,8 @@ window.__ModuleLoader__.load({
       lastSeen: '最近连接',
       actions: '操作',
       revoke: '移除',
+      rename: '改名',
+      renamePrompt: '新的设备名称',
       revokeConfirm: '移除设备「{name}」？它需要重新配对才能连接。',
       via: '地址',
       noDevices: '还没有设备',
@@ -136,6 +141,8 @@ window.__ModuleLoader__.load({
       lastSeen: 'Last seen',
       actions: 'Actions',
       revoke: 'Remove',
+      rename: 'Rename',
+      renamePrompt: 'New device name',
       revokeConfirm: 'Remove “{name}”? It must pair again to reconnect.',
       via: 'Via',
       noDevices: 'No devices yet',
@@ -295,6 +302,33 @@ window.__ModuleLoader__.load({
             }
           }
 
+          const renameDevice = async (device) => {
+            const current = device.deviceName || ''
+            const next = window.prompt(t('renamePrompt'), current)
+            if (next === null) return
+            const name = next.trim()
+            if (name.length === 0 || name === current) return
+            setBusyDevice(device.deviceId)
+            setError(null)
+            try {
+              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(device.deviceId), {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ name }),
+              })
+              if (!response.ok) {
+                const body = await response.json().catch(() => null)
+                throw new Error(body?.error?.message || t('operationFailed'))
+              }
+              setData(await response.json())
+            } catch (failure) {
+              setError(failure instanceof Error ? failure.message : String(failure))
+            } finally {
+              setBusyDevice(null)
+            }
+          }
+
           const devices = Array.isArray(data?.devices) ? data.devices : []
 
           return h('section', { className: 'dd-page' },
@@ -349,11 +383,17 @@ window.__ModuleLoader__.load({
                   ? h('div', { className: 'dd-desc' }, t('noDevices'))
                   : devices.map(device => h('div', { className: 'dd-device', key: String(device.deviceId) },
                     h('div', { className: 'dd-deviceInfo' },
-                      h('span', { className: 'dd-deviceName' }, device.deviceName || '—'),
+                      h('div', { className: 'dd-deviceNameRow' },
+                        h('span', { className: 'dd-deviceName' }, device.deviceName || '—'),
+                        h('button', {
+                          type: 'button',
+                          className: 'dd-rename',
+                          disabled: busyDevice === device.deviceId,
+                          onClick: () => { void renameDevice(device) },
+                        }, t('rename')),
+                      ),
                       h('span', { className: 'dd-deviceMeta' },
-                        `${device.platform || 'unknown'}${device.appVersion ? ` · app ${device.appVersion}` : ''} · ${String(device.deviceId || '').slice(0, 16)}…`),
-                      h('span', { className: 'dd-deviceMeta' },
-                        `${t('via')}: ${Array.isArray(device.authorities) && device.authorities.length > 0 ? device.authorities.join(' / ') : '—'}`),
+                        `${device.platform || 'unknown'} · ${device.appVersion || '—'}`),
                     ),
                     h('div', { className: 'dd-deviceSide' },
                       h('div', { className: 'dd-deviceTimes' },

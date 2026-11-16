@@ -144,6 +144,21 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
   })
 
   router.add({
+    method: 'PUT',
+    pattern: '/admin/devices/:id',
+    auth: 'public',
+    handler: async (rc) => {
+      if (!adminAuthorized(deps, rc)) throw new HttpError(401, 'admin-unauthorized', 'open this page from an authenticated dsh browser')
+      const body = (rc.body ?? {}) as { name?: unknown }
+      const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : ''
+      if (name.length === 0) throw new HttpError(400, 'bad-device-name', 'a non-empty device name is required')
+      const renamed = await deps.devices.rename(rc.params.id!, name)
+      if (!renamed) throw new HttpError(404, 'device-not-found', 'no such device')
+      sendJson(rc.res, 200, await adminData(deps))
+    },
+  })
+
+  router.add({
     method: 'GET',
     pattern: '/pair',
     auth: 'public',
