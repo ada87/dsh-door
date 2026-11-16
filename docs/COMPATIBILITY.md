@@ -53,7 +53,7 @@ rg "@since|@deprecated" apps/dsh-door/src apps/app-dsh-door/src
 
 记录文件：`compat/versions.json`。
 
-当前包版本为 **0.1.5**（新增跨设备已读水位 `/read-state`）；0.1.4 已发布，0.1.5 待发布。页面里的版本号只作记录，功能以 `features` 探测为准，不看版本号。
+当前包版本为 **0.1.6**（已读水位由 dsh-tag 持有，dsh-door 只做鉴权转发）；0.1.5 已发布，0.1.6 待发布。页面里的版本号只作记录，功能以 `features` 探测为准，不看版本号。
 
 静态对照页（类似 electron-release 的简版）：
 

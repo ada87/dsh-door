@@ -25,7 +25,7 @@ import type { HttpRouter, RouteContext } from './http.js'
 import type { InteractionBroker } from './interactions.js'
 import type { PairingManager } from './pairing.js'
 import type { PushManager } from './push.js'
-import { parseReadState, type ReadStateStore } from './read-state.js'
+import { parseReadState, tagReadService } from './read-state.js'
 import type {
   ApprovalDecision,
   HealthResponse,
@@ -63,7 +63,6 @@ export interface RouteDependencies {
   hub: SseHub
   interactions: InteractionBroker
   push: PushManager
-  readState: ReadStateStore
   sessions: SessionFacade
   terminals: TerminalManager
   logger: {
@@ -558,14 +557,17 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     },
   })
 
-  // Read watermarks are shared by every paired device, so marking a Session
-  // read on one phone clears the bold row on the others.
+  // Read watermarks are owned by dsh-tag (colour and weight share one layer);
+  // this authenticated route is the phone's way in. Without dsh-tag the
+  // feature is simply absent, which the app sees through `features.readState`.
   router.add({
     method: 'GET',
     pattern: '/read-state',
     auth: 'device',
     handler: (rc) => {
-      sendJson(rc.res, 200, { sessions: deps.readState.snapshot(), serverTime: Date.now() })
+      const tag = tagReadService(deps.ctx)
+      if (tag === undefined) throw new HttpError(404, 'read-state-unavailable', 'install dsh-tag to share read state')
+      sendJson(rc.res, 200, { sessions: tag.reads(), serverTime: Date.now() })
     },
   })
 
@@ -574,12 +576,14 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     pattern: '/read-state',
     auth: 'device',
     handler: async (rc) => {
+      const tag = tagReadService(deps.ctx)
+      if (tag === undefined) throw new HttpError(404, 'read-state-unavailable', 'install dsh-tag to share read state')
       const body = (rc.body ?? {}) as { sessions?: unknown }
       const sessions = parseReadState(body.sessions)
       if (sessions === undefined) {
         throw new HttpError(400, 'bad-read-state', 'sessions must be an object of {readAt, unread, at}')
       }
-      sendJson(rc.res, 200, { sessions: await deps.readState.merge(sessions), serverTime: Date.now() })
+      sendJson(rc.res, 200, { sessions: tag.mergeReads(sessions), serverTime: Date.now() })
     },
   })
 
@@ -1189,7 +1193,7 @@ function features(deps: RouteDependencies): HealthResponse['features'] {
     agentPresets: agentPresetsAvailable(deps.ctx),
     models: modelsAvailable(deps.ctx),
     uploads: uploadsAvailable(deps.ctx),
-    readState: true,
+    readState: tagReadService(deps.ctx) !== undefined,
     schedules: schedulesAvailable(deps.ctx),
     scheduleActions: scheduleActionsAvailable(deps.ctx),
     scheduleHistory: scheduleHistoryAvailable(deps.ctx),
