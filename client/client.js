@@ -48,6 +48,21 @@ window.__ModuleLoader__.load({
 .dd-table{width:100%;border-collapse:collapse;font-size:13px}
 .dd-table th,.dd-table td{text-align:left;padding:8px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.18));color:var(--dsw-alias-label-secondary)}
 .dd-table th{font-weight:500;color:var(--dsw-alias-label-tertiary)}
+.dd-devices{display:flex;flex-direction:column;margin-top:2px}
+.dd-device{display:flex;gap:20px;align-items:flex-start;justify-content:space-between;padding:14px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.18))}
+.dd-device:last-child{border-bottom:0}
+.dd-deviceInfo{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.dd-deviceName{font-size:14px;color:var(--dsw-alias-label-primary,#111)}
+.dd-deviceMeta{font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary,#888);word-break:break-all}
+.dd-deviceSide{display:flex;align-items:center;gap:20px;flex:none}
+.dd-deviceTimes{display:flex;flex-direction:column;gap:3px;text-align:right}
+.dd-deviceTime{font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary,#888);white-space:nowrap}
+.dd-deviceAction{flex:none}
+.dd-deviceAction button{white-space:nowrap}
+@media (max-width:640px){
+  .dd-device{flex-wrap:wrap}
+  .dd-deviceSide{width:100%;justify-content:space-between}
+}
 .dd-error{color:var(--dsw-alias-state-error-primary,#f87171);font-size:13px;margin:0}
 .dd-link{color:var(--dsw-alias-link,var(--dsw-alias-brand-primary,#3d7bfd))}
 .dd-input{width:180px}
@@ -138,6 +153,22 @@ window.__ModuleLoader__.load({
         ctx.effect(installStyles, 'dsh-door: admin styles')
 
         const t = ctx.locale.bind(NS)
+
+        /** Browser-local date/time for the device table; follows the page language. */
+        let deviceTimeFormat
+        function formatDeviceTime(value) {
+          const date = new Date(value)
+          if (Number.isNaN(date.getTime())) return '—'
+          try {
+            deviceTimeFormat ??= new Intl.DateTimeFormat(
+              document.documentElement.lang || navigator.language || undefined,
+              { dateStyle: 'medium', timeStyle: 'short' },
+            )
+            return deviceTimeFormat.format(date)
+          } catch {
+            return date.toLocaleString()
+          }
+        }
 
         function AdminSection() {
           const [data, setData] = React.useState(null)
@@ -308,39 +339,31 @@ window.__ModuleLoader__.load({
 
             h('div', { className: 'dd-block' },
               h('span', { className: 'dd-label' }, t('devices')),
-              h('table', { className: 'dd-table' },
-                h('thead', null,
-                  h('tr', null,
-                    h('th', null, t('device')),
-                    h('th', null, t('pairedAt')),
-                    h('th', null, t('lastSeen')),
-                    h('th', null, t('actions')),
-                  ),
-                ),
-                h('tbody', null,
-                  devices.length === 0
-                    ? h('tr', null, h('td', { colSpan: 4, className: 'dd-desc' }, t('noDevices')))
-                    : devices.map(device => h('tr', { key: String(device.deviceId) },
-                      h('td', null,
-                        device.deviceName || '—',
-                        h('br'),
-                        h('span', { className: 'dd-desc' },
-                          `${device.platform || 'unknown'}${device.appVersion ? ` · app ${device.appVersion}` : ''} · ${String(device.deviceId || '').slice(0, 16)}…`),
-                        h('br'),
-                        h('span', { className: 'dd-desc' },
-                          `${t('via')}: ${Array.isArray(device.authorities) && device.authorities.length > 0 ? device.authorities.join(' / ') : '—'}`),
+              h('div', { className: 'dd-devices' },
+                devices.length === 0
+                  ? h('div', { className: 'dd-desc' }, t('noDevices'))
+                  : devices.map(device => h('div', { className: 'dd-device', key: String(device.deviceId) },
+                    h('div', { className: 'dd-deviceInfo' },
+                      h('span', { className: 'dd-deviceName' }, device.deviceName || '—'),
+                      h('span', { className: 'dd-deviceMeta' },
+                        `${device.platform || 'unknown'}${device.appVersion ? ` · app ${device.appVersion}` : ''} · ${String(device.deviceId || '').slice(0, 16)}…`),
+                      h('span', { className: 'dd-deviceMeta' },
+                        `${t('via')}: ${Array.isArray(device.authorities) && device.authorities.length > 0 ? device.authorities.join(' / ') : '—'}`),
+                    ),
+                    h('div', { className: 'dd-deviceSide' },
+                      h('div', { className: 'dd-deviceTimes' },
+                        h('span', { className: 'dd-deviceTime' }, `${t('lastSeen')} ${formatDeviceTime(device.lastSeenAt)}`),
+                        h('span', { className: 'dd-deviceTime' }, `${t('pairedAt')} ${formatDeviceTime(device.pairedAt)}`),
                       ),
-                      h('td', null, new Date(device.pairedAt).toLocaleString()),
-                      h('td', null, new Date(device.lastSeenAt).toLocaleString()),
-                      h('td', null,
+                      h('div', { className: 'dd-deviceAction' },
                         h(Button, {
                           variant: 'ghost',
                           size: 'sm',
                           disabled: busyDevice === device.deviceId,
                           onClick: () => { void revokeDevice(device) },
                         }, t('revoke'))),
-                    )),
-                ),
+                    ),
+                  )),
               ),
             ),
 
