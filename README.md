@@ -121,16 +121,9 @@ the new app build rather than upgrading the old one in place.
 
 ## Pairing code in the browser
 
-Open this URL **in the same browser that is already logged into dsh Web UI**:
-
-```text
-http://<host>:3080/dsh-door/admin
-```
-
-The page is protected by the dsh browser cookie: the plugin calls
-`ctx.connection.admit()` on the request headers. Loopback is accepted as a
-local fallback. Without a valid dsh login it returns 401 and tells the user to
-open the Web UI first.
+Open dsh Web UI and go to **Settings → Built-in plugins → dsh-door**. The tab
+sits beside dsh-tag and uses the same slot mechanism, so it follows the Web UI
+theme and language.
 
 The page shows:
 
@@ -140,35 +133,21 @@ The page shows:
 - buttons to generate a new one-time code, set a **fixed code**, or restore
   one-time rotation.
 
-There are two admin surfaces, both backed by the same cookie-authenticated
-`/admin/data` and `/admin/pair-code` endpoints:
+There is no standalone HTML page. The tab is contributed by `client/client.js`
+through the `settings.plugins.tab` slot and reads two cookie-authenticated
+endpoints:
 
-- **Standalone page** at `${basePath}/admin` — the URL above. It is rendered
-  from `web/` at build time into `lib/web/admin.<locale>.html`; the shipped
-  page is plain HTML/CSS plus a small inline script, with no React or vendor
-  bundle.
-- **In-UI page** at **Settings → dsh-door** — contributed by
-  `client/client.js` through the `settings.section` slot. It uses dsh's React
-  runtime, `ctx.locale` dictionaries, and the same JSON API, so it follows the
-  Web UI theme and language.
+- `GET /admin/data` — current code, QR payload and device list;
+- `POST /admin/pair-code` — rotate, set or clear a fixed code.
 
-The plugin manager's **dsh-door** page also has an **Open standalone page**
-action, plus a one-line pointer under the component list.
+Both are protected by the dsh browser session: the plugin calls
+`ctx.connection.admit()` on the request headers, with loopback accepted as a
+local fallback. Without a valid dsh login the endpoints return 401.
 
 The browser half is part of the page's boot manifest, so after installing or
 updating the plugin, restart `dsh web` and reload the Web UI (a hard refresh,
 not just the settings tab). An already-open tab keeps the old module graph and
-will not show the link.
-
-### Building the admin page
-
-`web/` is a development-only React project. `npm run build:web` renders
-`lib/web/admin.{zh,en}.html` and `lib/web/admin-denied.{zh,en}.html` with
-`renderToStaticMarkup`; `npm run build` (and therefore `prepare`) runs it.
-React and ReactDOM are devDependencies and are not part of the published
-runtime. To add a locale, add its dictionary in `web/src/i18n.ts` and its id to
-the `locales` array in `web/render.tsx`; the Host picks it from `?lang=` or
-`Accept-Language`.
+will not show the tab.
 
 ### Local development without publishing
 
@@ -180,14 +159,9 @@ dsh plugin --profile web add link:/absolute/path/to/dsh-door
 
 Then:
 
-- **Host code**: `pnpm dev:host` (esbuild + `client/client.js` copy) and restart
-  `dsh web`.
-- **Admin HTML**: `pnpm dev:web` (watch) plus `devAdminReload: true` in the
-  profile; refresh the browser, no Host restart.
-- **Client half**: `pnpm dev:host` refreshes `lib/client.js`; hard-refresh the
-  browser. If the boot manifest keeps the old revision, restart `dsh web`.
-- **Before publishing**: `pnpm build` (types + bundle + templates) and
-  `pnpm test`.
+- **Host + client half**: `pnpm dev:host` (TypeScript types, esbuild bundle, and
+  the `client/client.js` copy); restart `dsh web`.
+- **Before publishing**: `pnpm build` (types + bundle) and `pnpm test`.
 
 Use a separate home if you do not want to touch your real profile:
 
@@ -246,7 +220,6 @@ the app probes `/dsh-door/health`, and pairings live under `dsh-door/*`.
     questionWaitTimeoutMs: 120000
     allowSessionWideGrants: true
     enableDebugRoutes: false            # true exposes authenticated /debug/* test routes
-    devAdminReload: false               # true re-reads lib/web/admin.*.html on every request
     maxBodyBytes: 65536
     rateLimitWindowMs: 60000
     rateLimitMax: 240

@@ -1,10 +1,9 @@
 /**
  * Browser half of dsh-door.
  *
- * It ships two surfaces:
- * - a dedicated "dsh-door" page inside dsh Settings (React, dsh locale + slots)
- * - a link on the plugin manager's dsh-door page to the standalone
- *   /dsh-door/admin page rendered from web/ at build time
+ * Ships one surface: a tab under Settings → Built-in plugins, alongside
+ * dsh-tag. The pairing panel itself is React; it reads the Host's
+ * `/admin/data` and `/admin/pair-code` endpoints. There is no standalone page.
  *
  * This file is hand-written in the lazy-CJS factory format the dsh client
  * module system expects. build.mjs copies it to lib/client.js.
@@ -17,7 +16,6 @@ window.__ModuleLoader__.load({
     const h = React.createElement
 
     const NS = 'dshDoorAdmin'
-    const BUNDLE = 'dsh-door'
     const injected = globalThis.__DSH_DOOR__
     const BASE = typeof injected?.basePath === 'string' && injected.basePath.length > 0
       ? injected.basePath.replace(/\/$/, '')
@@ -76,8 +74,6 @@ window.__ModuleLoader__.load({
       operationFailed: '操作失败',
       enterFixed: '请输入固定码',
       confirmFixed: '固定码会一直有效，确定设置？',
-      openStandalone: '打开独立页面',
-      detailHint: '这里只放一个入口；完整的配对面板在 Settings → dsh-door，独立页面在 /dsh-door/admin。',
     }
 
     const en = {
@@ -110,8 +106,6 @@ window.__ModuleLoader__.load({
       operationFailed: 'Operation failed',
       enterFixed: 'Enter a fixed code',
       confirmFixed: 'A fixed code stays valid until changed. Set it?',
-      openStandalone: 'Open standalone page',
-      detailHint: 'This is only an entry point; the full pairing panel is in Settings → dsh-door, and the standalone page is /dsh-door/admin.',
     }
 
     function installStyles() {
@@ -120,10 +114,6 @@ window.__ModuleLoader__.load({
       style.textContent = styles
       document.head.append(style)
       return () => style.remove()
-    }
-
-    function isDoor(subject) {
-      return (subject.kind === 'bundle' || subject.kind === 'row') && subject.pkg?.name === BUNDLE
     }
 
     return {
@@ -307,56 +297,12 @@ window.__ModuleLoader__.load({
           )
         }
 
-        ctx.slots.inject('settings.section', () => ctx.slots.register({
-          name: 'settings.section',
+        ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
+          name: 'settings.plugins.tab',
           id: 'dsh-door',
-          order: -20,
+          order: 10,
           label: () => t('nav'),
         }, AdminSection))
-
-        ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
-          name: 'settings.section.icon',
-          id: 'dsh-door',
-        }, ({ size = 16, active }) => h('svg', {
-          width: size,
-          height: size,
-          viewBox: '0 0 16 16',
-          'aria-hidden': true,
-        },
-        h('path', {
-          d: 'M3 2.5h7v11H3z',
-          fill: active ? 'currentColor' : 'none',
-          stroke: 'currentColor',
-          strokeWidth: 1.2,
-        }),
-        h('path', {
-          d: 'M10 3.5l3 1v9l-3-1z',
-          fill: 'none',
-          stroke: 'currentColor',
-          strokeWidth: 1.2,
-        }))))
-
-        ctx.slots.inject('plugins.detail.actions', () => ctx.slots.register({
-          name: 'plugins.detail.actions',
-          id: 'dsh-door-admin',
-          order: 100,
-        }, ({ subject }) => isDoor(subject)
-          ? h('a', {
-            className: 'dd-link',
-            href: BASE + '/admin',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-          }, t('openStandalone'))
-          : null))
-
-        ctx.slots.inject('plugins.detail.section', () => ctx.slots.register({
-          name: 'plugins.detail.section',
-          id: 'dsh-door-admin',
-          order: 100,
-        }, ({ subject }) => isDoor(subject)
-          ? h('section', { className: 'dd-page' },
-            h('p', { className: 'dd-desc' }, t('detailHint')))
-          : null))
       },
     }
   },

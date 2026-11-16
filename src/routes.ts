@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import {
   agentPresetsAvailable,
   createWorkspace,
@@ -94,19 +92,6 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         time: Date.now(),
       }
       sendJson(rc.res, 200, response)
-    },
-  })
-
-  router.add({
-    method: 'GET',
-    pattern: '/admin',
-    auth: 'public',
-    handler: async (rc) => {
-      if (!adminAuthorized(deps, rc)) {
-        sendHtml(rc.res, 401, adminDeniedHtml(rc, config.basePath, config.devAdminReload))
-        return
-      }
-      sendHtml(rc.res, 200, adminHtml(rc, config.devAdminReload))
     },
   })
 
@@ -1239,63 +1224,6 @@ async function adminData(deps: RouteDependencies): Promise<Record<string, unknow
       lastSeenAt: device.lastSeenAt,
     })),
   }
-}
-
-function sendHtml(res: RouteContext['res'], status: number, html: string): void {
-  if (res.writableEnded) return
-  res.statusCode = status
-  res.setHeader('Content-Type', 'text/html; charset=utf-8')
-  res.setHeader('Cache-Control', 'no-store')
-  res.setHeader('X-Content-Type-Options', 'nosniff')
-  res.setHeader('X-Frame-Options', 'DENY')
-  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:")
-  res.writeHead(status, { 'Content-Length': String(Buffer.byteLength(html)) })
-  res.end(html)
-}
-
-const webTemplateCache = new Map<string, string>()
-
-/** Read a build-time React template from lib/web and cache it. */
-function webTemplate(name: string, reload: boolean): string {
-  if (!reload) {
-    const cached = webTemplateCache.get(name)
-    if (cached !== undefined) return cached
-  }
-  const filename = fileURLToPath(new URL(`../lib/web/${name}`, import.meta.url))
-  let html: string
-  try {
-    html = readFileSync(filename, 'utf8')
-  } catch (error) {
-    throw new Error(
-      `dsh-door: missing admin template ${filename}. Run "npm run build:web" before starting the plugin.`,
-      { cause: error },
-    )
-  }
-  if (!reload) webTemplateCache.set(name, html)
-  return html
-}
-
-function adminLocale(rc: RouteContext): 'zh' | 'en' {
-  const query = rc.query.get('lang')
-  if (query === 'zh' || query === 'en') return query
-  const header = rc.req.headers['accept-language']
-  const value = Array.isArray(header) ? header.join(',') : header ?? ''
-  return /(^|,)\s*zh\b/i.test(value) ? 'zh' : 'en'
-}
-
-function adminHtml(rc: RouteContext, reload: boolean): string {
-  return webTemplate(`admin.${adminLocale(rc)}.html`, reload)
-}
-
-function adminDeniedHtml(rc: RouteContext, basePath: string, reload: boolean): string {
-  return webTemplate(`admin-denied.${adminLocale(rc)}.html`, reload)
-    .replaceAll('__ADMIN_PATH__', escapeHtml(`${basePath}/admin`))
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, character => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[character] ?? character))
 }
 
 async function renderQr(text: string): Promise<string | null> {

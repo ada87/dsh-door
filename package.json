@@ -47,15 +47,11 @@
     "dsh": ">=0.2.1-rc.4 <0.3.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node build.mjs && npm run build:web",
-    "build:web": "tsx --tsconfig web/tsconfig.json web/render.tsx",
+    "build": "tsc -p tsconfig.json && node build.mjs",
     "dev:host": "node build.mjs",
-    "dev:web": "tsx watch --tsconfig web/tsconfig.json web/render.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "typecheck:web": "tsc -p web/tsconfig.json --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "compat:site": "node compat/build-site.mjs",
-    "pretest": "npm run build:web",
     "pack:local": "pnpm pack",
     "prepare": "npm run build"
   },
@@ -72,12 +68,8 @@
     "@types/node": "^24.0.0",
     "@types/qrcode": "^1.5.6",
     "@types/qrcode-terminal": "^0.12.2",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
     "@types/semver": "^7.7.1",
     "esbuild": "^0.28.2",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
