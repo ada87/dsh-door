@@ -41,6 +41,12 @@ Restart `dsh web`. The terminal prints:
 The code has a five-minute TTL by default. After a successful pairing it rotates;
 the terminal prints the next one.
 
+The generated pairing code is **four digits** (`1234`). It is one-time, expires
+after `pairingTtlMs`, and each client address gets `pairingMaxAttempts` (8)
+tries per TTL. Four digits are convenient but low entropy: keep dsh on a trusted
+LAN/Tailscale, or raise `pairingCodeLength` / lower `pairingMaxAttempts` before
+exposing it to the internet.
+
 The Host's compatibility gate enforces the `engines.dsh` range at install and
 profile startup. If a linked or exempted install runs outside the tested range,
 the plugin logs a warning and reports `dshCompatible: false` in `/health`
