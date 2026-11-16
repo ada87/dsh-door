@@ -46,13 +46,57 @@ export function normalizeProjections(value: SessionProjectionsValue | null | und
   return values as ProjectionValues
 }
 
+export interface SessionListRowState {
+  archived: ReadonlySet<string>
+  pinned: ReadonlySet<string>
+  /** Session id → position in the Host's manual workspace order. */
+  manualOrder: ReadonlyMap<string, number>
+}
+
+interface WorkspaceOrderLike {
+  sessionIds?: readonly unknown[]
+}
+
+interface WorkspaceRegistryRowStateLike {
+  list?(): WorkspaceOrderLike[]
+  readonly archivedSessionIds?: readonly unknown[]
+  readonly pinnedSessionIds?: readonly unknown[]
+}
+
+/**
+ * Read the registry-global archive set and per-workspace manual order once per
+ * list request. Both are optional: an older Host without the registry simply
+ * yields empty state and the phone keeps its recency fallback.
+ */
+export function sessionRowState(ctx: HostContext): SessionListRowState {
+  const archived = new Set<string>()
+  const pinned = new Set<string>()
+  const manualOrder = new Map<string, number>()
+  const registry = ctx.get('workspaceRegistry') as WorkspaceRegistryRowStateLike | undefined
+  if (registry === undefined) return { archived, pinned, manualOrder }
+
+  for (const id of registry.archivedSessionIds ?? []) archived.add(String(id))
+  for (const id of registry.pinnedSessionIds ?? []) pinned.add(String(id))
+
+  if (typeof registry.list !== 'function') return { archived, pinned, manualOrder }
+  let rank = 0
+  for (const workspace of registry.list()) {
+    for (const id of workspace.sessionIds ?? []) {
+      const key = String(id)
+      if (!manualOrder.has(key)) manualOrder.set(key, rank++)
+    }
+  }
+  return { archived, pinned, manualOrder }
+}
+
 export function createSessionFacade(ctx: HostContext): SessionFacade {
   const controller = ctx.sessionController
 
   return {
     async list(signal) {
+      const rowState = sessionRowState(ctx)
       const value = await controller.list({}, signal)
-      return Promise.all(value.items.map(item => toListItem(ctx, item, signal)))
+      return Promise.all(value.items.map(item => toListItem(ctx, item, signal, rowState)))
     },
 
     async transcript(sessionId, options, signal) {
@@ -136,7 +180,7 @@ export function createSessionFacade(ctx: HostContext): SessionFacade {
             agentAvailable: state.active,
             blank: false,
           }
-          : await toListItem(ctx, summary, signal),
+          : await toListItem(ctx, summary, signal, sessionRowState(ctx)),
       }
     },
 
@@ -194,9 +238,15 @@ export function createSessionFacade(ctx: HostContext): SessionFacade {
   }
 }
 
-async function toListItem(ctx: HostContext, summary: SessionSummary, signal: AbortSignal): Promise<SessionListItem> {
+async function toListItem(
+  ctx: HostContext,
+  summary: SessionSummary,
+  signal: AbortSignal,
+  rowState?: SessionListRowState,
+): Promise<SessionListItem> {
   const projections = await readProjections(ctx, summary.sessionId, signal)
   const vitals = toVitals(projections)
+  const manualOrder = rowState?.manualOrder.get(summary.sessionId)
   return {
     id: summary.sessionId,
     title: typeof projections.title === 'string' ? projections.title : null,
@@ -208,6 +258,9 @@ async function toListItem(ctx: HostContext, summary: SessionSummary, signal: Abo
     ...(summary.parentSessionId === undefined ? {} : { parentSessionId: summary.parentSessionId }),
     ...(summary.origin === undefined ? {} : { origin: summary.origin }),
     ...(summary.formatStatus === undefined ? {} : { formatStatus: summary.formatStatus }),
+    ...(rowState?.archived.has(summary.sessionId) === true ? { archived: true } : {}),
+    ...(rowState?.pinned.has(summary.sessionId) === true ? { pinned: true } : {}),
+    ...(manualOrder === undefined ? {} : { manualOrder }),
     ...(vitals === undefined ? {} : { vitals }),
   }
 }

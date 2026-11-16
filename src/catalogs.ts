@@ -13,6 +13,10 @@ export interface WorkspaceItem {
   title: string
 }
 
+export interface WorkspaceCreateValue {
+  workspace: WorkspaceItem
+}
+
 export interface AgentPresetItem {
   id: string
   name?: string
@@ -57,6 +61,21 @@ interface WorkspaceLike {
 
 interface WorkspaceRegistryLike {
   list(): WorkspaceLike[]
+}
+
+interface WorkspaceRegistryCreateLike extends WorkspaceRegistryLike {
+  create(path: string, title?: string): Promise<WorkspaceLike>
+}
+
+interface WorkspaceRegistryRenameLike extends WorkspaceRegistryLike {
+  get(id: string): (WorkspaceLike & { setTitle(title: string): Promise<void> }) | undefined
+}
+
+interface WorkspaceRegistryActionsLike {
+  pinSession?(sessionId: string): Promise<void>
+  unpinSession?(sessionId: string): Promise<void>
+  archiveSession?(sessionId: string, options?: { stopActivity?: boolean }): Promise<void>
+  unarchiveSession?(sessionId: string): Promise<void>
 }
 
 interface AgentPresetLike {
@@ -124,6 +143,83 @@ export function listWorkspaces(ctx: HostContext): WorkspaceItem[] {
     path: String(workspace.path),
     title: typeof workspace.title === 'string' && workspace.title.length > 0 ? workspace.title : workspace.path,
   }))
+}
+
+/** Adopt an existing Host directory as a workspace (the dsh Web folder-plus action). */
+export async function createWorkspace(
+  ctx: HostContext,
+  path: string,
+  title?: string,
+): Promise<WorkspaceItem> {
+  const registry = ctx.get('workspaceRegistry') as WorkspaceRegistryCreateLike | undefined
+  if (registry === undefined || typeof registry.create !== 'function') {
+    throw new Error('this Host profile does not expose the workspace registry')
+  }
+  const workspace = await registry.create(path, title)
+  return {
+    id: String(workspace.id),
+    path: String(workspace.path),
+    title: typeof workspace.title === 'string' && workspace.title.length > 0 ? workspace.title : workspace.path,
+  }
+}
+
+export function workspaceRenameAvailable(ctx: HostContext): boolean {
+  const registry = ctx.get('workspaceRegistry') as WorkspaceRegistryRenameLike | undefined
+  return registry !== undefined && typeof registry.get === 'function'
+}
+
+/** Rename a workspace without touching its directory or sessions. */
+export async function renameWorkspace(
+  ctx: HostContext,
+  id: string,
+  title: string,
+): Promise<{ workspace: WorkspaceItem } | { code: 'workspace-not-found' }> {
+  const registry = ctx.get('workspaceRegistry') as WorkspaceRegistryRenameLike | undefined
+  if (registry === undefined || typeof registry.get !== 'function') {
+    throw new Error('this Host profile does not expose the workspace registry')
+  }
+  const workspace = registry.get(id)
+  if (workspace === undefined) return { code: 'workspace-not-found' }
+  await workspace.setTitle(title)
+  return {
+    workspace: {
+      id: String(workspace.id),
+      path: String(workspace.path),
+      title: typeof workspace.title === 'string' && workspace.title.length > 0 ? workspace.title : title,
+    },
+  }
+}
+
+/** Pin/unpin a Session on every dsh Web grouping surface. */
+export async function setSessionPinned(ctx: HostContext, sessionId: string, pinned: boolean): Promise<void> {
+  const registry = ctx.get('workspaceRegistry') as WorkspaceRegistryActionsLike | undefined
+  const action = pinned ? registry?.pinSession : registry?.unpinSession
+  if (registry === undefined || typeof action !== 'function') {
+    throw new Error('this Host profile does not expose workspace pinning')
+  }
+  await action.call(registry, sessionId)
+}
+
+/**
+ * Archive/unarchive a Session. Archiving a running Session fails unless
+ * `stopActivity` is explicitly true; the phone asks the user to stop first
+ * rather than silently cancelling work.
+ */
+export async function setSessionArchived(
+  ctx: HostContext,
+  sessionId: string,
+  archived: boolean,
+  stopActivity = false,
+): Promise<void> {
+  const registry = ctx.get('workspaceRegistry') as WorkspaceRegistryActionsLike | undefined
+  if (registry === undefined) throw new Error('this Host profile does not expose workspace archiving')
+  if (archived) {
+    if (typeof registry.archiveSession !== 'function') throw new Error('this Host profile does not expose workspace archiving')
+    await registry.archiveSession(sessionId, stopActivity ? { stopActivity: true } : undefined)
+    return
+  }
+  if (typeof registry.unarchiveSession !== 'function') throw new Error('this Host profile does not expose workspace archiving')
+  await registry.unarchiveSession(sessionId)
 }
 
 export async function listAgentPresets(ctx: HostContext): Promise<AgentPresetList> {

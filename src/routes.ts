@@ -2,14 +2,19 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   agentPresetsAvailable,
+  createWorkspace,
   currentSessionModel,
   listAgentPresets,
   listWorkspaces,
   modelCatalog,
   modelsAvailable,
+  renameWorkspace,
   selectSessionModel,
+  setSessionArchived,
+  setSessionPinned,
   uploadAttachment,
   uploadsAvailable,
+  workspaceRenameAvailable,
   workspacesAvailable,
   type ModelSelection,
 } from './catalogs.js'
@@ -34,7 +39,17 @@ import type {
 } from './protocol.js'
 import { PROTOCOL_VERSION } from './protocol.js'
 import type { SessionFacade } from './sessions.js'
-import { listSchedules } from './schedules.js'
+import {
+  deleteSchedule,
+  editSchedule,
+  listSchedules,
+  runSchedule,
+  scheduleActionsAvailable,
+  scheduleHistory,
+  scheduleHistoryAvailable,
+  schedulesAvailable,
+  viewSchedule,
+} from './schedules.js'
 import { speechCatalog, transcribeSpeech } from './speech.js'
 import type { SseHub } from './streams.js'
 import type { TerminalEvent, TerminalManager } from './terminal.js'
@@ -333,6 +348,102 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
 
   router.add({
     method: 'GET',
+    pattern: '/schedules/:id',
+    auth: 'device',
+    handler: async (rc) => {
+      const result = await viewSchedule(deps.ctx, rc.params.id!, rc.signal)
+      if (result === undefined) throw new HttpError(404, 'schedule-unavailable', 'the Host has no schedule service')
+      const code = scheduleCode(result)
+      if (code === 'schedule_not_found') throw new HttpError(404, 'schedule-not-found', 'the task no longer exists')
+      sendJson(rc.res, 200, result)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/schedules/:id/history',
+    auth: 'device',
+    handler: async (rc) => {
+      const rawLimit = rc.query.get('limit')
+      const parsed = rawLimit === null ? 20 : Number(rawLimit)
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+        throw new HttpError(400, 'bad-limit', 'limit must be an integer from 1 to 100')
+      }
+      const before = rc.query.get('before') ?? undefined
+      const result = await scheduleHistory(deps.ctx, rc.params.id!, parsed, before, rc.signal)
+      if (result === undefined) throw new HttpError(404, 'schedule-unavailable', 'the Host has no schedule service')
+      const code = scheduleCode(result)
+      if (code === 'schedule_not_found') throw new HttpError(404, 'schedule-not-found', 'the task no longer exists')
+      if (code === 'delivery_cursor_not_found') throw new HttpError(404, 'delivery-cursor-not-found', 'the history cursor is no longer valid')
+      sendJson(rc.res, 200, result)
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/schedules/:id/run',
+    auth: 'device',
+    handler: async (rc) => {
+      const result = await runSchedule(deps.ctx, rc.params.id!, rc.signal)
+      if (result === undefined) throw new HttpError(404, 'schedule-unavailable', 'the Host has no schedule service')
+      const code = scheduleCode(result)
+      if (code === 'schedule_not_found') throw new HttpError(404, 'schedule-not-found', 'the task no longer exists')
+      if (code === 'schedule_execution_pending') {
+        throw new HttpError(409, 'schedule-execution-pending', 'the task is already running or cooling down')
+      }
+      sendJson(rc.res, 200, result)
+    },
+  })
+
+  router.add({
+    method: 'PUT',
+    pattern: '/schedules/:id',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { active?: unknown; expectedUpdatedAt?: unknown }
+      if (typeof body.active !== 'boolean') {
+        throw new HttpError(400, 'bad-schedule-patch', 'active must be a boolean')
+      }
+      const expectedUpdatedAt = typeof body.expectedUpdatedAt === 'string' || body.expectedUpdatedAt === null
+        ? body.expectedUpdatedAt
+        : undefined
+      const result = await editSchedule(
+        deps.ctx,
+        rc.params.id!,
+        { active: body.active },
+        expectedUpdatedAt,
+        rc.signal,
+      )
+      if (result === undefined) throw new HttpError(404, 'schedule-unavailable', 'the Host has no schedule service')
+      const code = scheduleCode(result)
+      if (code === 'schedule_not_found') throw new HttpError(404, 'schedule-not-found', 'the task no longer exists')
+      if (code === 'schedule_conflict') throw new HttpError(409, 'schedule-conflict', 'the task changed on the Host')
+      sendJson(rc.res, 200, result)
+    },
+  })
+
+  router.add({
+    method: 'DELETE',
+    pattern: '/schedules/:id',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { expectedUpdatedAt?: unknown }
+      const fromBody = body.expectedUpdatedAt
+      const fromQuery = rc.query.get('expectedUpdatedAt') ?? undefined
+      const expectedUpdatedAt = typeof fromBody === 'string' || fromBody === null
+        ? fromBody
+        : fromQuery
+      const result = await deleteSchedule(deps.ctx, rc.params.id!, expectedUpdatedAt, rc.signal)
+      if (result === undefined) throw new HttpError(404, 'schedule-unavailable', 'the Host has no schedule service')
+      const code = scheduleCode(result)
+      if (code === 'schedule_not_found') throw new HttpError(404, 'schedule-not-found', 'the task no longer exists')
+      if (code === 'schedule_conflict') throw new HttpError(409, 'schedule-conflict', 'the task changed on the Host')
+      sendJson(rc.res, 200, result)
+    },
+  })
+
+  router.add({
+    method: 'GET',
     pattern: '/sessions',
     auth: 'device',
     handler: async (rc) => {
@@ -363,6 +474,44 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     auth: 'device',
     handler: (rc) => {
       sendJson(rc.res, 200, { items: listWorkspaces(deps.ctx) })
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/workspaces',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { path?: unknown; title?: unknown }
+      if (typeof body.path !== 'string' || body.path.trim().length === 0) {
+        throw new HttpError(400, 'workspace-invalid-path', 'a non-empty absolute directory path is required')
+      }
+      const title = typeof body.title === 'string' && body.title.trim().length > 0
+        ? body.title.trim().slice(0, 120)
+        : undefined
+      try {
+        const workspace = await createWorkspace(deps.ctx, body.path.trim(), title)
+        sendJson(rc.res, 201, { workspace })
+      } catch (error) {
+        throw new HttpError(400, 'workspace-create-failed', shortError(error))
+      }
+    },
+  })
+
+  router.add({
+    method: 'PUT',
+    pattern: '/workspaces/:id',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { title?: unknown }
+      if (typeof body.title !== 'string' || body.title.trim().length === 0) {
+        throw new HttpError(400, 'workspace-invalid-title', 'a non-empty workspace title is required')
+      }
+      const result = await renameWorkspace(deps.ctx, rc.params.id!, body.title.trim().slice(0, 120))
+      if ('code' in result) {
+        throw new HttpError(404, 'workspace-not-found', 'the workspace no longer exists')
+      }
+      sendJson(rc.res, 200, result)
     },
   })
 
@@ -463,7 +612,8 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     handler: async (rc) => {
       const path = rc.query.get('path')
       if (path === null || path.length === 0) throw new HttpError(400, 'empty-path', 'path is required')
-      const response = await readWorkspaceFile(deps.ctx, rc.params.id!, path, rc.signal)
+      const offset = numberParam(rc.query.get('offset')) ?? 0
+      const response = await readWorkspaceFile(deps.ctx, rc.params.id!, path, rc.signal, offset)
       sendJson(rc.res, 200, response)
     },
   })
@@ -576,6 +726,63 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     handler: (rc) => {
       const accepted = deps.sessions.cancel(rc.params.id!)
       sendJson(rc.res, 202, accepted)
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/sessions/:id/pin',
+    auth: 'device',
+    handler: async (rc) => {
+      try {
+        await setSessionPinned(deps.ctx, rc.params.id!, true)
+        sendJson(rc.res, 200, { ok: true })
+      } catch (error) {
+        throw new HttpError(409, 'session-pin-failed', shortError(error))
+      }
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/sessions/:id/unpin',
+    auth: 'device',
+    handler: async (rc) => {
+      try {
+        await setSessionPinned(deps.ctx, rc.params.id!, false)
+        sendJson(rc.res, 200, { ok: true })
+      } catch (error) {
+        throw new HttpError(409, 'session-pin-failed', shortError(error))
+      }
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/sessions/:id/archive',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { stopActivity?: unknown }
+      try {
+        await setSessionArchived(deps.ctx, rc.params.id!, true, body.stopActivity === true)
+        sendJson(rc.res, 200, { ok: true })
+      } catch (error) {
+        throw new HttpError(409, 'session-archive-failed', shortError(error))
+      }
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/sessions/:id/unarchive',
+    auth: 'device',
+    handler: async (rc) => {
+      try {
+        await setSessionArchived(deps.ctx, rc.params.id!, false)
+        sendJson(rc.res, 200, { ok: true })
+      } catch (error) {
+        throw new HttpError(409, 'session-archive-failed', shortError(error))
+      }
     },
   })
 
@@ -808,6 +1015,22 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
   })
 
   router.add({
+    method: 'POST',
+    pattern: '/presence',
+    auth: 'device',
+    handler: (rc) => {
+      const body = rc.body as { foreground?: unknown } | undefined
+      if (typeof body?.foreground !== 'boolean') {
+        throw new HttpError(400, 'bad-presence', 'foreground must be a boolean')
+      }
+      const device = rc.device
+      if (device === undefined) throw new HttpError(401, 'unauthenticated', 'a valid device token is required')
+      deps.interactions.setPresence(device.deviceId, body.foreground)
+      sendJson(rc.res, 200, { accepted: true })
+    },
+  })
+
+  router.add({
     method: 'GET',
     pattern: '/questions',
     auth: 'device',
@@ -894,18 +1117,31 @@ function serverFacts(deps: RouteDependencies): ServerFacts {
   }
 }
 
+function scheduleCode(result: unknown): string | undefined {
+  if (typeof result !== 'object' || result === null) return undefined
+  const code = (result as { code?: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
+
 function features(deps: RouteDependencies): HealthResponse['features'] {
   return {
     approvals: true,
     questions: true,
+    presence: true,
     push: deps.push.isConfigured(),
     debugRoutes: deps.config.enableDebugRoutes,
     terminal: deps.terminals.available(),
     files: true,
     workspaces: workspacesAvailable(deps.ctx),
+    workspaceRename: workspaceRenameAvailable(deps.ctx),
+    archive: workspacesAvailable(deps.ctx),
+    pin: workspacesAvailable(deps.ctx),
     agentPresets: agentPresetsAvailable(deps.ctx),
     models: modelsAvailable(deps.ctx),
     uploads: uploadsAvailable(deps.ctx),
+    schedules: schedulesAvailable(deps.ctx),
+    scheduleActions: scheduleActionsAvailable(deps.ctx),
+    scheduleHistory: scheduleHistoryAvailable(deps.ctx),
     sessionEvents: 'sse',
     protocol: PROTOCOL_VERSION,
   }

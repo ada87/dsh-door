@@ -40,6 +40,8 @@ export interface HealthResponse extends ServerFacts {
   features: {
     approvals: boolean
     questions: boolean
+    /** Whether a foreground app can claim questions/approvals before the browser. */
+    presence: boolean
     push: boolean
     debugRoutes: boolean
     /** Whether the Host has a subprocess provider for the phone terminal. */
@@ -47,6 +49,18 @@ export interface HealthResponse extends ServerFacts {
     files: boolean
     /** Whether the Host exposes the workspace registry for the new-session picker. */
     workspaces: boolean
+    /** Whether the Host allows renaming a workspace. */
+    workspaceRename: boolean
+    /** Whether the Host exposes the schedule catalog. */
+    schedules: boolean
+    /** Whether the Host allows run/pause/resume/delete on scheduled tasks. */
+    scheduleActions: boolean
+    /** Whether the Host exposes delivery history for scheduled tasks. */
+    scheduleHistory: boolean
+    /** Whether the workspace registry exposes the archive set for drawer filtering. */
+    archive: boolean
+    /** Whether the workspace registry exposes pin/unpin session actions. */
+    pin: boolean
     /** Whether the Host exposes agent presets for the new-session picker. */
     agentPresets: boolean
     /** Whether the Host exposes the LLM catalog for the model picker. */
@@ -116,6 +130,15 @@ export interface SessionListItem {
   parentSessionId?: string
   origin?: 'subagent'
   formatStatus?: 'current' | 'migration-required'
+  /** Whether the Host's workspace registry currently archives this Session. */
+  archived?: boolean
+  /** Whether the Host's workspace registry currently pins this Session. */
+  pinned?: boolean
+  /**
+   * Position in the Host's manual workspace order. Sessions outside every
+   * workspace are omitted; the phone falls back to recency for those.
+   */
+  manualOrder?: number
   /**
    * Compact numbers lifted from the Session projections. Optional: older
    * plugins omit it, and a Session without projections has nothing to report.

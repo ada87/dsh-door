@@ -307,9 +307,15 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | POST | `/push/register` | Register an FCM/APNs token |
 | PUT | `/push/subscriptions` | Set this device's `approval` / `question` / `turnEnd` subscriptions |
 | DELETE | `/push` | Remove this device's push token |
+| POST | `/presence` | Tell the plugin this device is foreground (`{ foreground: boolean }`) |
 | GET | `/speech` | Host speech Provider readiness; requires the experimental speech API bundle |
 | POST | `/speech/transcribe` | Transcribe one canonical base64 WAV without submitting a Session prompt |
-| GET | `/schedules` | Read-only automation catalog; `available: false` when the profile has no schedule service |
+| GET | `/schedules` | Automation catalog; `available: false` when the profile has no schedule service |
+| GET | `/schedules/:id` | One task with target, last delivery and execution flags |
+| GET | `/schedules/:id/history?limit=20&before=` | Delivery history, newest first |
+| POST | `/schedules/:id/run` | Deliver one occurrence now without moving the schedule |
+| PUT | `/schedules/:id` | Pause/resume (`{ "active": boolean, "expectedUpdatedAt"?: string }`) |
+| DELETE | `/schedules/:id` | Delete the task and its saved deliveries |
 | GET | `/sessions` | Session list with title projections and optional `vitals` (context %, tokens, turns, todos, goal, plan, model) |
 | POST | `/sessions` | Create/reuse a blank Session |
 | GET | `/sessions/:id/transcript` | Message-aligned history page |
@@ -326,6 +332,9 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | POST | `/sessions/:id/prompt` | Send text (`queue` or `steer`) |
 | POST | `/sessions/:id/rename` | Rename |
 | POST | `/sessions/:id/fork` | Create a child Session at an optional inclusive `atSeq` prefix |
+| GET | `/workspaces` | Workspace registry (id, path, title) |
+| POST | `/workspaces` | Adopt an existing directory (`{ "path", "title"? }`) |
+| PUT | `/workspaces/:id` | Rename a workspace (`{ "title": string }`); duplicate titles are allowed, like dsh Web |
 | POST | `/sessions/:id/cancel` | Stop the current turn |
 | GET | `/sessions/:id/open` | Escape-hatch browser URL |
 | GET | `/events` | Global SSE: approvals, questions, sessions, turn end |
@@ -337,17 +346,27 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | POST | `/debug/approval` | Debug-only synthetic approval (enableDebugRoutes) |
 | POST | `/debug/question` | Debug-only synthetic question (enableDebugRoutes) |
 
+A schedule delivery receipt acknowledges that the target Session persisted the
+message, not that the Agent finished or succeeded. Open the target Session for
+the actual result. `GET /health` advertises `schedules`, `scheduleActions` and
+`scheduleHistory` so older plugins can stay read-only; `workspaceRename` gates
+the phone's workspace rename entry.
+
 ### Approval policy
 
 The plugin follows the required policy exactly:
 
-1. If `ctx.typertGateway.hasLiveClient()` is true, call `next()` — the browser
-   wins. The waterfall is first-answerer-wins, so claiming would hide the
+1. If a paired app is in the foreground with a live global SSE connection, claim
+   the request even when a browser is connected. The app heartbeats
+   `POST /presence` every 20 seconds; a claim expires after 45 seconds without a
+   heartbeat, and backgrounding the app releases it immediately.
+2. Otherwise, if `ctx.typertGateway.hasLiveClient()` is true, call `next()` — the
+   browser wins. The waterfall is first-answerer-wins, so claiming would hide the
    prompt from the official UI.
-2. Otherwise claim the request, broadcast it over SSE, push it if configured,
+3. With neither, claim the request, broadcast it over SSE, push it if configured,
    and wait for the app or the timeout.
-3. Timeout, abort, or an answer of "no" falls back to `next()`, so dsh's own
-   fail-closed `unavailable` path still applies.
+4. Timeout, abort, an answer of "no", or the foreground app leaving falls back to
+   `next()`, so dsh's own fail-closed `unavailable` path still applies.
 
 `always` is a process-local session grant for one `session + tool` pair. dsh only
 defines one-shot `allowed-once`; the plugin does not invent durable grants.
@@ -361,9 +380,12 @@ session.
 
 ### Questions
 
-Questions use the same browser-first policy. If the foreground wait is already
-gone, the app can still answer the projection's `continued` questions through
-the `callId` route, which calls `ctx.userQuestions.answer(agent, callId, ...)`.
+Questions use the same policy: a foreground app with a live SSE connection claims
+the question before a connected browser. If the app leaves the foreground, the
+claim is released and dsh shows the question in the browser. If the foreground
+wait is already gone, the app can still answer the projection's `continued`
+questions through the `callId` route, which calls
+`ctx.userQuestions.answer(agent, callId, ...)`.
 
 ### SSE frames
 

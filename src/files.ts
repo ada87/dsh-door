@@ -24,7 +24,12 @@ export interface WorkspaceFileList {
 export interface WorkspaceFileContent {
   path: string
   size: number
+  /** Byte offset this chunk starts at. */
+  offset: number
+  /** True when more bytes remain after this chunk. */
   truncated: boolean
+  /** Byte offset to request next, when truncated. */
+  nextOffset?: number
   content: string
 }
 
@@ -56,36 +61,59 @@ export async function listWorkspaceFiles(
   return { root, path: displayPath(rootReal, directory), entries, truncated: visible.length > MAX_ENTRIES }
 }
 
-/** Read at most 256 KiB of a UTF-8 text file inside the Session cwd. */
+/** Read at most 256 KiB of a UTF-8 text file inside the Session cwd, optionally from a byte offset. */
 export async function readWorkspaceFile(
   ctx: HostContext,
   sessionId: string,
   requestedPath: string,
   signal: AbortSignal,
+  offset = 0,
 ): Promise<WorkspaceFileContent> {
   const { rootReal } = await workspaceRoot(ctx, sessionId, signal)
   const filename = await confinedRealPath(rootReal, requestedPath)
   const info = await stat(filename)
   if (!info.isFile()) throw new HttpError(400, 'not-a-file', 'the requested path is not a regular file')
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > info.size) {
+    throw new HttpError(400, 'invalid-offset', 'offset must be a byte position inside the file')
+  }
   const handle = await open(filename, 'r')
   try {
-    const buffer = Buffer.alloc(Math.min(info.size, MAX_FILE_BYTES + 1))
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+    const remaining = info.size - offset
+    const length = Math.min(remaining, MAX_FILE_BYTES)
+    const buffer = Buffer.alloc(length)
+    const { bytesRead } = length === 0 ? { bytesRead: 0 } : await handle.read(buffer, 0, length, offset)
     const bytes = buffer.subarray(0, bytesRead)
-    const truncated = bytesRead > MAX_FILE_BYTES || info.size > MAX_FILE_BYTES
-    const contentBytes = truncated ? bytes.subarray(0, MAX_FILE_BYTES) : bytes
     // A NUL is a conservative binary guard: source/text files do not contain
     // it, and sending arbitrary binary as JSON would make the phone unusable.
-    if (contentBytes.includes(0)) throw new HttpError(415, 'binary-file', 'binary files cannot be previewed as text')
+    if (bytes.includes(0)) throw new HttpError(415, 'binary-file', 'binary files cannot be previewed as text')
+    // Do not split a UTF-8 sequence across chunks; the dropped bytes are read
+    // again from the next offset.
+    const contentBytes = trimIncompleteUtf8(bytes)
+    const nextOffset = offset + contentBytes.length < info.size ? offset + contentBytes.length : undefined
     return {
       path: displayPath(rootReal, filename),
       size: info.size,
-      truncated,
+      offset,
+      truncated: nextOffset !== undefined,
+      ...(nextOffset === undefined ? {} : { nextOffset }),
       content: contentBytes.toString('utf8'),
     }
   } finally {
     await handle.close()
   }
+}
+
+/** Drop a trailing partial UTF-8 sequence so each chunk decodes cleanly. */
+function trimIncompleteUtf8(bytes: Buffer): Buffer {
+  const length = bytes.length
+  if (length === 0) return bytes
+  let start = length - 1
+  while (start >= 0 && (bytes[start]! & 0xC0) === 0x80) start--
+  if (start < 0) return bytes
+  const lead = bytes[start]!
+  const expected = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1
+  if (expected === 1) return bytes
+  return length - start < expected ? bytes.subarray(0, start) : bytes
 }
 
 async function workspaceRoot(ctx: HostContext, sessionId: string, signal: AbortSignal): Promise<{ root: string; rootReal: string }> {

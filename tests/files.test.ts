@@ -30,6 +30,11 @@ test('workspace files lists directories first and reads UTF-8 text', async () =>
     const file = await readWorkspaceFile(ctx, 's1', 'src/main.ts', new AbortController().signal)
     assert.equal(file.content, 'export const answer = 42\n')
     assert.equal(file.truncated, false)
+    assert.equal(file.offset, 0)
+    const tail = await readWorkspaceFile(ctx, 's1', 'src/main.ts', new AbortController().signal, 7)
+    assert.equal(tail.offset, 7)
+    assert.equal(tail.content, 'const answer = 42\n')
+    assert.equal(tail.nextOffset, undefined)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

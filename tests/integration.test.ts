@@ -53,12 +53,36 @@ const record = {
   },
 } as const
 
+const scheduleTask = {
+  id: 'task-1',
+  title: 'Daily news',
+  prompt: 'daily prompt',
+  kind: 'rrule',
+  rrule: 'DTSTART:20261116T020000Z\nRRULE:FREQ=DAILY',
+  scheduledAt: '2026-11-16T02:00:00.000Z',
+  status: 'active' as const,
+  createdAt: '2026-11-15T02:00:00.000Z',
+  updatedAt: '2026-11-15T02:00:00.000Z',
+  target: { kind: 'session' as const, sessionId },
+  lastDelivery: {
+    scheduledAt: '2026-11-15T02:00:00.000Z',
+    deliveredAt: '2026-11-15T02:00:01.000Z',
+    messageId: 'message-delivery-1',
+    targetSessionId: sessionId,
+    prompt: 'daily prompt',
+  },
+}
+
 let state: FakeState
 
 before(async () => {
   const listeners = new Map<string, Array<(...args: unknown[]) => unknown>>()
   const records = new Map<unknown, FakeDeviceRecord>()
   const terminals: TerminalCapture[] = []
+  const workspaceRecords: Array<{ id: string; path: string; title: string; setTitle(title: string): Promise<void> }> = [
+    { id: 'workspace-1', path: 'D:\\work', title: 'work', async setTitle(title: string) { workspaceRecords[0]!.title = title } },
+    { id: 'workspace-2', path: 'D:\\other', title: 'other', async setTitle(title: string) { workspaceRecords[1]!.title = title } },
+  ]
   let routeHandler: ((req: unknown, res: unknown) => unknown) | undefined
   let origin = ''
 
@@ -150,6 +174,58 @@ before(async () => {
     },
     typertGateway: {
       hasLiveClient() { return ctx.browserLive },
+    },
+    schedule: {
+      async catalog() {
+        return [scheduleTask]
+      },
+      async view(request: { id: string }) {
+        if (request.id === 'missing') return { id: request.id, code: 'schedule_not_found' as const }
+        return { ...scheduleTask, id: request.id }
+      },
+      async history(request: { id: string; limit: number }) {
+        return {
+          id: request.id,
+          records: [{
+            scheduledAt:'2026-11-16T02:00:00.000Z',
+            deliveredAt:'2026-11-16T02:00:01.000Z',
+            messageId:`message-${request.id}`,
+            targetSessionId: sessionId,
+            prompt:'daily prompt',
+          }].slice(0, request.limit),
+          earlierRecordsUnavailable: false,
+          earlierRecordsPruned: false,
+          retention: { days: 30, records: 100 },
+        }
+      },
+      async run(request: { id: string }) {
+        if (request.id === 'busy') return { id: request.id, code: 'schedule_execution_pending' as const }
+        return { ...scheduleTask, id: request.id }
+      },
+      async edit(request: unknown) {
+        const req = request as { id: string; action: string; patch?: { active?: boolean } }
+        if (req.action === 'delete') return { id: req.id, deleted: true as const }
+        return {
+          ...scheduleTask,
+          id: req.id,
+          status: req.patch?.active === false ? 'paused' as const : 'active' as const,
+          updatedAt: '2026-11-15T10:00:00.000Z',
+        }
+      },
+    },
+    workspaceRegistry: {
+      list() { return workspaceRecords },
+      get(id: unknown) { return workspaceRecords.find(item => item.id === id) },
+      async create(path: string, title?: string) {
+        const workspace = {
+          id: `workspace-${workspaceRecords.length + 1}`,
+          path,
+          title: title ?? path,
+          async setTitle(next: string) { workspace.title = next },
+        }
+        workspaceRecords.push(workspace)
+        return workspace
+      },
     },
     subprocess: {
       async terminalEnvironment() {
@@ -465,6 +541,47 @@ test('a live browser wins: the approval listener delegates with next()', async (
   assert.equal(outcome, 'unavailable')
 })
 
+test('a foreground app beats a live browser and releases its claim on background', async () => {
+  const sse = await openSse(state)
+  const setPresence = (foreground: boolean) => fetch(`${state.base}/presence`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${state.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ foreground }),
+  })
+  try {
+    assert.equal((await setPresence(true)).status, 200)
+    state.ctx.browserLive = true
+    let nextCalled = false
+    const decision = state.ctx.waterfall('approval/request',
+      { agent: { id: sessionId }, toolName: 'bash', reason: 'phone first' },
+      () => { nextCalled = true; return Promise.resolve('unavailable') },
+    )
+    const item = await waitForApproval(state)
+    assert.equal(item.toolName, 'bash')
+    assert.equal(nextCalled, false, 'a foreground phone claims the approval')
+
+    assert.equal((await setPresence(false)).status, 200)
+    assert.equal(await decision, 'unavailable')
+    assert.equal(nextCalled, true, 'backgrounding delegates the held approval')
+    await sse.waitFor('delegated')
+  } finally {
+    await setPresence(false).catch(() => undefined)
+    state.ctx.browserLive = false
+    sse.close()
+  }
+})
+
+test('presence rejects a body without a boolean foreground', async () => {
+  const response = await fetch(`${state.base}/presence`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${state.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+  assert.equal(response.status, 400)
+  const body = await response.json() as { error: { code: string } }
+  assert.equal(body.error.code, 'bad-presence')
+})
+
 test('approval is claimed, pushed to SSE, and resolved by HTTP', async () => {
   const sse = await openSse(state)
   try {
@@ -604,6 +721,91 @@ test('admin page can set and clear a persisted fixed pairing code', async () => 
   })
   const autoBody = await auto.json() as { fixed: boolean }
   assert.equal(autoBody.fixed, false)
+})
+
+test('schedule routes expose detail, history and actions', async () => {
+  const headers = { authorization: `Bearer ${state.token}` }
+  const list = await fetch(`${state.base}/schedules`, { headers })
+  assert.equal(list.status, 200)
+  const listBody = await list.json() as { available: boolean; items: Array<{ id: string; prompt: string }> }
+  assert.equal(listBody.available, true)
+  assert.equal(listBody.items[0]?.id, 'task-1')
+  assert.equal(listBody.items[0]?.prompt, 'daily prompt')
+
+  const detail = await fetch(`${state.base}/schedules/task-1`, { headers })
+  assert.equal(detail.status, 200)
+  assert.equal((await detail.json() as { id: string }).id, 'task-1')
+
+  const missing = await fetch(`${state.base}/schedules/missing`, { headers })
+  assert.equal(missing.status, 404)
+
+  const history = await fetch(`${state.base}/schedules/task-1/history?limit=5`, { headers })
+  assert.equal(history.status, 200)
+  const historyBody = await history.json() as { records: Array<{ targetSessionId: string }> }
+  assert.equal(historyBody.records.length, 1)
+  assert.equal(historyBody.records[0]?.targetSessionId, sessionId)
+
+  const run = await fetch(`${state.base}/schedules/task-1/run`, { method: 'POST', headers })
+  assert.equal(run.status, 200)
+  assert.equal((await run.json() as { id: string }).id, 'task-1')
+
+  const pending = await fetch(`${state.base}/schedules/busy/run`, { method: 'POST', headers })
+  assert.equal(pending.status, 409)
+  const pendingBody = await pending.json() as { error: { code: string } }
+  assert.equal(pendingBody.error.code, 'schedule-execution-pending')
+
+  const paused = await fetch(`${state.base}/schedules/task-1`, {
+    method: 'PUT',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ active: false }),
+  })
+  assert.equal(paused.status, 200)
+  assert.equal((await paused.json() as { status: string }).status, 'paused')
+
+  const deleted = await fetch(`${state.base}/schedules/task-1`, { method: 'DELETE', headers })
+  assert.equal(deleted.status, 200)
+  assert.equal((await deleted.json() as { deleted: boolean }).deleted, true)
+})
+
+test('workspace routes list and rename durable titles', async () => {
+  const headers = { authorization: `Bearer ${state.token}` }
+  const list = await fetch(`${state.base}/workspaces`, { headers })
+  assert.equal(list.status, 200)
+  const listBody = await list.json() as { items: Array<{ id: string; title: string }> }
+  assert.equal(listBody.items.length, 2)
+
+  const renamed = await fetch(`${state.base}/workspaces/workspace-1`, {
+    method: 'PUT',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'renamed work' }),
+  })
+  assert.equal(renamed.status, 200)
+  const renamedBody = await renamed.json() as { workspace: { id: string; title: string; path: string } }
+  assert.equal(renamedBody.workspace.title, 'renamed work')
+  assert.equal(renamedBody.workspace.path, 'D:\\work')
+
+  // dsh itself allows duplicate display titles, so renaming must not invent a conflict.
+  const duplicate = await fetch(`${state.base}/workspaces/workspace-1`, {
+    method: 'PUT',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'other' }),
+  })
+  assert.equal(duplicate.status, 200)
+  assert.equal(((await duplicate.json()) as { workspace: { title: string } }).workspace.title, 'other')
+
+  const empty = await fetch(`${state.base}/workspaces/workspace-1`, {
+    method: 'PUT',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ title: '   ' }),
+  })
+  assert.equal(empty.status, 400)
+
+  const missing = await fetch(`${state.base}/workspaces/nope`, {
+    method: 'PUT',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'gone' }),
+  })
+  assert.equal(missing.status, 404)
 })
 
 test('debug routes create and resolve synthetic approvals and questions', async () => {

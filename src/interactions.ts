@@ -14,6 +14,8 @@ interface PendingApproval {
   preview?: ApprovalPreview
   createdAt: number
   expiresAt: number
+  /** Claimed because the app was in the foreground; released when it leaves. */
+  phoneHold: boolean
   resolve(decision: ApprovalDecision | 'timeout'): void
   timer: NodeJS.Timeout
 }
@@ -25,6 +27,8 @@ interface PendingQuestion {
   questions: QuestionItem[]
   createdAt: number
   expiresAt: number
+  /** Claimed because the app was in the foreground; released when it leaves. */
+  phoneHold: boolean
   resolve(answer: QuestionAnswer | 'timeout'): void
   timer: NodeJS.Timeout
 }
@@ -57,20 +61,29 @@ interface AbortSignalLike {
 
 type Next<T> = () => Promise<T>
 
+/** A foreground claim expires if the app stops heartbeating (killed, frozen). */
+const PRESENCE_TTL_MS = 45_000
+
 /**
- * Owns the human-interaction seams. The policy is fixed:
+ * Owns the human-interaction seams. The policy is:
  *
- * - a live browser Client answers first, so the plugin always calls `next()`
- *   while one is connected;
- * - otherwise the request is claimed, pushed to the app, and held until the
- *   app answers or the configured timeout elapses;
- * - timeout and cancellation fall back to `next()`, restoring dsh's own
- *   fail-closed behavior instead of inventing an outcome.
+ * - a foreground app with a live SSE connection answers first, so the plugin
+ *   claims the request even while a browser is connected;
+ * - otherwise a live browser Client answers first and the plugin calls `next()`;
+ * - with neither, the request is pushed to the app and held until it answers or
+ *   the configured timeout elapses;
+ * - timeout, cancellation and an app leaving the foreground fall back to
+ *   `next()`, restoring dsh's own fail-closed behavior instead of inventing an
+ *   outcome.
  */
 export class InteractionBroker {
   private readonly approvals = new Map<string, PendingApproval>()
   private readonly questions = new Map<string, PendingQuestion>()
   private readonly grants = new Set<string>()
+  /** Last foreground heartbeat per paired device. */
+  private readonly foreground = new Map<string, number>()
+  /** Hands held interactions back if a foreground app dies without a false ping. */
+  private readonly presenceSweep = setInterval(() => this.releasePhoneHolds(), 15_000)
 
   constructor(
     private readonly ctx: HostContext,
@@ -81,6 +94,7 @@ export class InteractionBroker {
   ) {}
 
   register(): void {
+    this.presenceSweep.unref?.()
     this.ctx.on('approval/request', async (...args: unknown[]) => {
       const req = args[0] as ApprovalRequestLike
       const next = args[1] as Next<'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'>
@@ -95,6 +109,20 @@ export class InteractionBroker {
 
   listApprovals(): ApprovalItem[] {
     return [...this.approvals.values()].map(toApprovalItem)
+  }
+
+  /**
+   * Record whether one paired device is in the foreground. A foreground device
+   * with a live SSE connection takes priority over a connected browser; leaving
+   * the foreground immediately hands its held questions/approvals back to dsh.
+   */
+  setPresence(deviceId: string, foreground: boolean): void {
+    const before = this.hasForegroundPhone()
+    if (foreground) this.foreground.set(deviceId, Date.now())
+    else this.foreground.delete(deviceId)
+    const after = this.hasForegroundPhone()
+    if (before !== after) this.logger.info(`[dsh-door] foreground app ${after ? 'claims' : 'releases'} interactions`)
+    this.releasePhoneHolds()
   }
 
   /** Create a synthetic approval for the authenticated debug route. */
@@ -120,6 +148,7 @@ export class InteractionBroker {
       displayReason: input.displayReason ?? { en: 'Run a command', zh: '执行一条命令' },
       createdAt,
       expiresAt,
+      phoneHold: false,
       resolve: () => undefined,
       timer,
     }
@@ -153,6 +182,7 @@ export class InteractionBroker {
       questions,
       createdAt,
       expiresAt,
+      phoneHold: false,
       resolve: () => undefined,
       timer,
     }
@@ -253,7 +283,8 @@ export class InteractionBroker {
       })
       return 'allowed-once'
     }
-    if (this.browserWins()) return next()
+    const phoneHold = this.phoneWins()
+    if (!phoneHold && this.browserWins()) return next()
     if (!this.appCanAnswer()) {
       // Nothing can answer: keep dsh's fail-closed path instead of holding a
       // turn for two minutes for an app that is not connected.
@@ -282,6 +313,7 @@ export class InteractionBroker {
         ...(preview === undefined ? {} : { preview }),
         createdAt,
         expiresAt,
+        phoneHold,
         resolve,
         timer,
       }
@@ -309,7 +341,11 @@ export class InteractionBroker {
 
   private async handleQuestion(req: QuestionRequestLike, next: Next<QuestionAnswer>): Promise<QuestionAnswer> {
     const sessionId = req.agent?.id ?? 'unknown'
-    if (this.browserWins()) return next()
+    this.logger.info(
+      `[dsh-door] question request in ${sessionId}: phone=${this.phoneWins()} presence=${this.hasForegroundPhone()} hub=${this.hub.hasClients()} browser=${this.browserWins()}`,
+    )
+    const phoneHold = this.phoneWins()
+    if (!phoneHold && this.browserWins()) return next()
     if (!this.appCanAnswer()) return next()
     if (req.signal?.aborted === true) return next()
 
@@ -330,6 +366,7 @@ export class InteractionBroker {
         questions: req.questions,
         createdAt,
         expiresAt,
+        phoneHold,
         resolve,
         timer,
       }
@@ -351,7 +388,7 @@ export class InteractionBroker {
         this.hub.broadcast('question-resolved', { id, sessionId, callId: req.wait?.callId, decision: 'cancelled', source: 'signal' })
         resolve('timeout')
       }, { once: true })
-      this.logger.info(`[dsh-door] question ${id} in ${sessionId}`)
+      this.logger.info(`[dsh-door] question ${id} in ${sessionId} (${phoneHold ? 'foreground app' : 'app'})`)
     })
 
     if (answer === 'timeout') return next()
@@ -402,11 +439,59 @@ export class InteractionBroker {
     return gateway?.hasLiveClient() === true
   }
 
+  /** A foreground app only wins while its SSE connection can receive the card. */
+  private phoneWins(): boolean {
+    return this.hasForegroundPhone() && this.hub.hasClients()
+  }
+
+  private hasForegroundPhone(): boolean {
+    const now = Date.now()
+    for (const [deviceId, at] of this.foreground) {
+      if (now - at > PRESENCE_TTL_MS) this.foreground.delete(deviceId)
+    }
+    return this.foreground.size > 0
+  }
+
+  /**
+   * The app left the foreground (or stopped heartbeating). Any interaction it
+   * was holding goes back to dsh so a connected browser can render it now.
+   */
+  private releasePhoneHolds(): void {
+    if (this.hasForegroundPhone()) return
+    for (const [id, pending] of [...this.questions]) {
+      if (!pending.phoneHold) continue
+      clearTimeout(pending.timer)
+      this.questions.delete(id)
+      this.hub.broadcast('question-resolved', {
+        id,
+        sessionId: pending.sessionId,
+        callId: pending.callId,
+        decision: 'delegated',
+        source: 'presence',
+      })
+      pending.resolve('timeout')
+    }
+    for (const [id, pending] of [...this.approvals]) {
+      if (!pending.phoneHold) continue
+      clearTimeout(pending.timer)
+      this.approvals.delete(id)
+      this.hub.broadcast('approval-resolved', {
+        id,
+        sessionId: pending.sessionId,
+        decision: 'delegated',
+        source: 'presence',
+      })
+      pending.resolve('timeout')
+    }
+  }
+
   private appCanAnswer(): boolean {
     return this.hub.hasClients() || this.push.isConfigured()
   }
 
   dispose(): void {
+    clearInterval(this.presenceSweep)
+    this.foreground.clear()
     for (const pending of this.approvals.values()) {
       clearTimeout(pending.timer)
       pending.resolve('timeout')
