@@ -43,7 +43,7 @@ window.__ModuleLoader__.load({
 .dd-modalActions{display:flex;justify-content:flex-end;gap:8px}
 .dd-modalInput{width:100%}
 .dd-qr{font-size:10px;line-height:1;overflow:auto;margin:0;color:var(--dsw-alias-label-secondary);max-height:220px}
-.dd-qr-img{display:flex;justify-content:center;align-self:center;background:#fff;border-radius:8px;padding:8px}
+.dd-qr-img{display:flex;justify-content:flex-start;align-self:flex-start;background:#fff;border-radius:8px;padding:8px}
 .dd-qr-img svg{width:220px;height:220px;display:block}
 .dd-table{width:100%;border-collapse:collapse;font-size:13px}
 .dd-table th,.dd-table td{text-align:left;padding:8px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.18));color:var(--dsw-alias-label-secondary)}
@@ -78,8 +78,11 @@ window.__ModuleLoader__.load({
       fixedHint: '永久码不会过期；建议只在可信网络使用',
       remaining: '剩余 {time}',
       reset: '重置',
+      modify: '修改',
       setPermanentTitle: '设置永久配对码',
       setPermanentDesc: '输入 4 位数字，将作为永久配对码。',
+      modifyTitle: '修改永久配对码',
+      modifyDesc: '输入新的 4 位数字，旧永久码会立即失效。',
       passwordPlaceholder: '4 位数字',
       passwordInvalid: '请输入 4 位数字',
       confirm: '确定',
@@ -88,7 +91,7 @@ window.__ModuleLoader__.load({
       resetDesc: '当前永久码会立即失效，并生成新的一次性码。',
       qrTitle: '扫码/输入',
       qrLoading: '二维码加载中…',
-      qrHint: 'App 使用数字配对码；二维码内容为',
+      qrHint: '请用手机打开 DSH Door，连接 → 添加服务器 → 使用插件配对 → 扫描二维码。',
       devices: '已配对设备',
       device: '设备',
       pairedAt: '配对时间',
@@ -113,8 +116,11 @@ window.__ModuleLoader__.load({
       fixedHint: 'The permanent code never expires; use it only on a trusted network',
       remaining: '{time} left',
       reset: 'Reset',
+      modify: 'Change',
       setPermanentTitle: 'Set a permanent pairing code',
       setPermanentDesc: 'Enter four digits to use as the permanent pairing code.',
+      modifyTitle: 'Change the permanent pairing code',
+      modifyDesc: 'Enter four new digits; the old permanent code stops working immediately.',
       passwordPlaceholder: 'Four digits',
       passwordInvalid: 'Enter four digits',
       confirm: 'Confirm',
@@ -123,7 +129,7 @@ window.__ModuleLoader__.load({
       resetDesc: 'The permanent code stops working immediately and a fresh one-time code is generated.',
       qrTitle: 'Scan or type',
       qrLoading: 'Loading QR…',
-      qrHint: 'The app uses the numeric code; the QR payload is',
+      qrHint: 'Open DSH Door on your phone, then Connection → Add server → Plugin pairing → Scan QR code.',
       devices: 'Paired devices',
       device: 'Device',
       pairedAt: 'Paired',
@@ -323,8 +329,8 @@ window.__ModuleLoader__.load({
                     variant: 'outline',
                     size: 'sm',
                     disabled: busy,
-                    onClick: openReset,
-                  }, t('reset'))
+                    onClick: openPermanent,
+                  }, t('modify'))
                   : h('span', { className: 'dd-countdown' }, left.length > 0 ? t('remaining', { time: left }) : ''),
               ),
             ),
@@ -334,7 +340,7 @@ window.__ModuleLoader__.load({
               data?.qrSvg
                 ? h('div', { className: 'dd-qr-img', dangerouslySetInnerHTML: { __html: data.qrSvg } })
                 : h('span', { className: 'dd-desc' }, t('qrFailed')),
-              h('span', { className: 'dd-desc' }, t('qrHint'), ' ', h('code', null, '{"v":1,"url":…,"code":…}')),
+              h('span', { className: 'dd-desc' }, t('qrHint')),
             ),
 
             h('div', { className: 'dd-block' },
@@ -377,9 +383,13 @@ window.__ModuleLoader__.load({
             },
             h('div', { className: 'dd-modal', role: 'dialog', 'aria-modal': 'true' },
               h('h3', { className: 'dd-modalTitle' },
-                dialog === 'permanent' ? t('setPermanentTitle') : t('resetTitle')),
+                dialog === 'permanent'
+                  ? (fixed ? t('modifyTitle') : t('setPermanentTitle'))
+                  : t('resetTitle')),
               h('p', { className: 'dd-desc' },
-                dialog === 'permanent' ? t('setPermanentDesc') : t('resetDesc')),
+                dialog === 'permanent'
+                  ? (fixed ? t('modifyDesc') : t('setPermanentDesc'))
+                  : t('resetDesc')),
               dialog === 'permanent'
                 ? h(Input, {
                   className: 'dd-modalInput',
