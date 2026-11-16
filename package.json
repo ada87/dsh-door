@@ -54,6 +54,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:web": "tsc -p web/tsconfig.json --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "compat:site": "node compat/build-site.mjs",
     "pretest": "npm run build:web",
     "pack:local": "pnpm pack",
     "prepare": "npm run build"

@@ -136,8 +136,11 @@ export function createSessionFacade(ctx: HostContext): SessionFacade {
         title: typeof projections.title === 'string' ? projections.title : null,
         records: page.records,
         hasMore: page.hasMore,
-        // 0.2.1 omits the inclusive cursor; the projection watermark is the
-        // same cut the page was read at.
+        /**
+         * @deprecated 0.2.2 — 0.2.1 fallback only; drop with the 0.2.1 floor.
+         * 0.2.1 omits the inclusive cursor; the projection watermark is the
+         * same cut the page was read at.
+         */
         cursor: page.cursor ?? options.beforeSeq ?? cut ?? 0,
         projections,
       }
@@ -153,8 +156,11 @@ export function createSessionFacade(ctx: HostContext): SessionFacade {
       const nativeState = typeof controller.state === 'function'
         ? await controller.state({ sessionId }, signal)
         : undefined
-      // 0.2.1 has no state() endpoint. Synthesize the fields the mobile UI
-      // needs from projections + list; queue details are unavailable there.
+      /**
+       * @deprecated 0.2.2 — 0.2.1 fallback only; drop with the 0.2.1 floor.
+       * 0.2.1 has no state() endpoint. Synthesize the fields the mobile UI
+       * needs from projections + list; queue details are unavailable there.
+       */
       const state = nativeState ?? {
         cursor: snapshot.asOfSeq ?? 0,
         active: summary?.agentAvailable === true,

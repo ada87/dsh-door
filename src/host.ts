@@ -87,7 +87,11 @@ export interface SessionEventEntry {
 export interface SessionEventsPage {
   records: SessionEventEntry[]
   hasMore: boolean
-  /** 0.2.2 returns this; 0.2.1 omits it, so callers fall back to the cut. */
+  /**
+   * @since 0.2.2
+   * Inclusive event cursor at the page cut. 0.2.1 omitted it, so the facade
+   * falls back to the projection watermark (see `sessions.transcript`).
+   */
   cursor?: number
 }
 
@@ -149,7 +153,11 @@ export interface SessionControllerService {
     maxMessages?: number
     turnWindow?: { minMessages: number; minTurns: number }
   }, signal: AbortSignal): Promise<SessionEventsPage>
-  /** Present in 0.2.2; absent in 0.2.1 (synthesized by the facade). */
+  /**
+   * @since 0.2.2
+   * Native running/queue state endpoint. 0.2.1 lacked it; the facade
+   * synthesizes the fields from projections and the list row.
+   */
   state?(request: { sessionId: string }, signal: AbortSignal): Promise<SessionStateValue>
   projections(request: { sessionId: string }, signal: AbortSignal): Promise<SessionProjectionsValue | null>
   follow(request: {

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-door 兼容性记录</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f7f9; --card: #fff; --text: #1b1d22; --muted: #666b76; --line: #e3e6eb; --accent: #3a6df0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111318; --card: #191c22; --text: #e8eaf0; --muted: #9aa0ac; --line: #2a2f39; --accent: #7aa2ff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { margin: 0 0 8px; font-size: 28px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .card b { display: block; font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 4px; }
+  h2 { font-size: 17px; margin: 30px 0 10px; }
+  .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 860px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+  .badge.pass { background: #e6f6ec; color: #176b36; }
+  .badge.partial { background: #fff4dc; color: #7a5200; }
+  .badge.pending { background: #eef0f4; color: #555b66; }
+  .badge.fail { background: #fdeaea; color: #a12626; }
+  @media (prefers-color-scheme: dark) {
+    .badge.pass { background: #153525; color: #8fe0ad; }
+    .badge.partial { background: #3a2d12; color: #f3c46b; }
+    .badge.pending { background: #242832; color: #b1b7c3; }
+    .badge.fail { background: #3b1d1d; color: #f2a0a0; }
+  }
+  footer { color: var(--muted); font-size: 12px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>dsh-door 兼容性记录</h1>
+  <p class="sub">dsh / dsh-door / App 版本对照。页面由 <code>compat/versions.json</code> 生成。</p>
+  <div class="cards">
+    <div class="card"><b>兼容基线</b>0.2.2</div>
+    <div class="card"><b>支持窗口</b>最近 3 个 minor</div>
+    <div class="card"><b>阶段</b>rc</div>
+    <div class="card"><b>更新</b>2026-11-16</div>
+  </div>
+
+  <h2>版本对照</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>dsh</th><th>minor</th><th>dsh-door</th><th>App</th><th>protocol</th><th>结果</th><th>测试时间</th><th>说明</th></tr></thead>
+      <tbody>
+    <tr>
+      <td><code>0.2.2-rc.1</code></td>
+      <td>0.2.2</td>
+      <td>0.1.9</td>
+      <td>0.1.0</td>
+      <td>1</td>
+      <td><span class="badge pass">通过</span></td>
+      <td>2026-11-16</td>
+      <td>Local manual smoke: pairing, sessions, transcript, approvals, schedules, workspace rename, files, terminal.</td>
+    </tr>
+    <tr>
+      <td><code>0.2.2-rc.3</code></td>
+      <td>0.2.2</td>
+      <td>0.1.9</td>
+      <td>0.1.0</td>
+      <td>1</td>
+      <td><span class="badge pending">待测试</span></td>
+      <td>—</td>
+      <td>Static API review only. Additive changes; runtime matrix pending.</td>
+    </tr></tbody>
+    </table>
+  </div>
+
+  <h2>Minor 线</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>minor</th><th>npm latest</th><th>npm next</th><th>已测版本</th><th>待测版本</th><th>说明</th></tr></thead>
+      <tbody>
+    <tr>
+      <td><strong>0.2.2</strong></td>
+      <td>0.2.2-rc.1</td>
+      <td>0.2.2-rc.3</td>
+      <td>0.2.2-rc.1</td>
+      <td>0.2.2-rc.3</td>
+      <td>rc.2/rc.3 changes are additive for dsh-door (empty prompt continuation, workspace archive follow-up events). The new session reading status is not in the published bundle yet.</td>
+    </tr></tbody>
+    </table>
+  </div>
+
+  <footer>生成自 dsh-door dsh-door@0.1.9 · 2026-11-16</footer>
+</main>
+</body>
+</html>

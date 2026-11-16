@@ -1,3 +1,7 @@
+/**
+ * @deprecated 0.2.2 — 0.2.1 compatibility suite; remove with the 0.2.1 floor.
+ * Covers the optional `state()` endpoint and the missing page cursor.
+ */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { HostContext } from '../src/host.js'

@@ -115,6 +115,10 @@ export const Config: Schema<Config> = Schema.object({
   maxBodyBytes: Schema.number().default(64 * 1024),
   rateLimitWindowMs: Schema.number().default(60 * 1000),
   rateLimitMax: Schema.number().default(240),
+  /**
+   * @deprecated 0.2.2 — 0.2.1 fallback only; the default floor moves to 0.2.2.
+   * @since 0.2.1
+   */
   dshVersionRange: Schema.string().default('>=0.2.1-rc.4 <0.3.0'),
   push: Schema.object({
     provider: Schema.union(['none', 'fcm', 'apns', 'relay'] as const).default('none'),

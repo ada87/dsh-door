@@ -33,7 +33,7 @@ dsh plugin --profile web add ./dsh-door-0.1.1.tgz
 Restart `dsh web`. The terminal prints:
 
 ```text
-[dsh-door] dsh 0.2.1-rc.4 satisfies >=0.2.1-rc.4 <0.3.0
+[dsh-door] dsh 0.2.2-rc.3 satisfies >=0.2.1-rc.4 <0.3.0
 [dsh-door] routes mounted at /dsh-door (protocol 1, push none)
 [dsh-door] pairing code ABCD-EFGH — open the app, enter the server URL, then this code.
 ```
@@ -46,10 +46,17 @@ profile startup. If a linked or exempted install runs outside the tested range,
 the plugin logs a warning and reports `dshCompatible: false` in `/health`
 instead of failing to load.
 
-Supported range: `>=0.2.1-rc.4 <0.3.0`. 0.2.1 lacks `sessionController.state()`
-and requires an explicit `page(throughSeq)`; the facade synthesizes state from
-projections + list and always supplies the projection watermark as the cut, then
-fills the missing cursor with that cut. See `tests/compat.test.ts`.
+Supported window: the latest three **minor** lines, starting with 0.2.2.
+Prerelease suffixes (`alpha`, `rc`) do not create a new line; `0.2.2-rc.1` and
+`0.2.2-rc.3` are one line. The current matrix and test record live in
+[`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) and `compat/versions.json`.
+
+`engines.dsh` still reads `>=0.2.1-rc.4 <0.3.0` during the transition. 0.2.1 is
+outside the support window and marked `@deprecated 0.2.2`: it lacks
+`sessionController.state()` and the page cursor, so the facade synthesizes state
+from projections + list and always supplies the projection watermark as the cut,
+then fills the missing cursor with that cut. See `tests/compat.test.ts`. The
+floor will move to `>=0.2.2-0` when the 0.2.1 shims are removed.
 
 ## Upgrade
 
@@ -59,8 +66,8 @@ available** and a **Versions** section; **Update** removes the old version,
 installs the selected one, keeps the bundle enabled, and recomposes with HMR or
 asks for a restart. A failed update restores the previous version when possible.
 
-The **Update / Versions** section is a dsh 0.2.2 feature. On dsh 0.2.1 the page
-has no update action, so update from the CLI instead:
+The **Update / Versions** section is a dsh 0.2.2 feature. On 0.2.1 (outside the
+supported window) the page has no update action, so update from the CLI instead:
 
 ```sh
 dsh plugin --profile web remove dsh-door

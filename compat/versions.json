@@ -1,0 +1,62 @@
+{
+  "policy": {
+    "baselineMinor": "0.2.2",
+    "window": 3,
+    "ignorePrerelease": true,
+    "phase": "rc",
+    "notes": "Support the latest three minor lines; prerelease suffixes do not create new lines. Stable-version policy is deferred until dsh ships a stable release."
+  },
+  "plugin": "dsh-door@0.1.9",
+  "updatedAt": "2026-11-16",
+  "releases": [
+    {
+      "dsh": "0.2.2-rc.1",
+      "dshMinor": "0.2.2",
+      "door": "0.1.9",
+      "app": "0.1.0",
+      "protocol": 1,
+      "result": "pass",
+      "testedAt": "2026-11-16",
+      "notes": "Local manual smoke: pairing, sessions, transcript, approvals, schedules, workspace rename, files, terminal."
+    },
+    {
+      "dsh": "0.2.2-rc.3",
+      "dshMinor": "0.2.2",
+      "door": "0.1.9",
+      "app": "0.1.0",
+      "protocol": 1,
+      "result": "pending",
+      "testedAt": null,
+      "notes": "Static API review only. Additive changes; runtime matrix pending."
+    }
+  ],
+  "minors": [
+    {
+      "minor": "0.2.2",
+      "npmLatest": "0.2.2-rc.1",
+      "npmNext": "0.2.2-rc.3",
+      "tested": [
+        {
+          "version": "0.2.2-rc.1",
+          "result": "pass",
+          "testedAt": "2026-11-16",
+          "scope": "local manual smoke: pairing, sessions, transcript, approvals, schedules, workspace rename, files, terminal"
+        }
+      ],
+      "pending": [
+        {
+          "version": "0.2.2-rc.3",
+          "reason": "static API review only; no runtime matrix run yet"
+        }
+      ],
+      "notes": "rc.2/rc.3 changes are additive for dsh-door (empty prompt continuation, workspace archive follow-up events). The new session reading status is not in the published bundle yet."
+    }
+  ],
+  "outOfWindow": [
+    {
+      "minor": "0.2.1",
+      "status": "unsupported",
+      "notes": "Compatibility shims are annotated @deprecated 0.2.2 and should be removed after the transition."
+    }
+  ]
+}
