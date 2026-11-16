@@ -53,6 +53,8 @@ rg "@since|@deprecated" apps/dsh-door/src apps/app-dsh-door/src
 
 记录文件：`compat/versions.json`。
 
+当前内部开发版包版本保持 **0.1.3**，不随每次改动递增；下个正式发布为 **0.1.4**。页面中的 `dsh-door@0.1.3` 即开发版，功能以 `features` 探测为准，不看版本号。
+
 静态对照页（类似 electron-release 的简版）：
 
 ```bash

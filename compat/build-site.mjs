@@ -113,7 +113,7 @@ const html = `<!doctype html>
     </table>
   </div>
 
-  <footer>生成自 dsh-door ${escape(data.plugin ?? '')} · ${escape(data.updatedAt ?? '')}</footer>
+  <footer>生成自 dsh-door ${escape(data.plugin ?? '')}${data.dev === true ? `（开发中${data.nextRelease ? ` · 下个发布 ${escape(data.nextRelease)}` : ''}）` : ''} · ${escape(data.updatedAt ?? '')}</footer>
 </main>
 </body>
 </html>

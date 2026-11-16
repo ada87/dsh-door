@@ -6,13 +6,15 @@
     "phase": "rc",
     "notes": "Support the latest three minor lines; prerelease suffixes do not create new lines. Stable-version policy is deferred until dsh ships a stable release."
   },
-  "plugin": "dsh-door@0.1.9",
+  "plugin": "dsh-door@0.1.3",
+  "dev": true,
+  "nextRelease": "0.1.4",
   "updatedAt": "2026-11-16",
   "releases": [
     {
       "dsh": "0.2.2-rc.1",
       "dshMinor": "0.2.2",
-      "door": "0.1.9",
+      "door": "0.1.3",
       "app": "0.1.0",
       "protocol": 1,
       "result": "pass",
@@ -22,7 +24,7 @@
     {
       "dsh": "0.2.2-rc.3",
       "dshMinor": "0.2.2",
-      "door": "0.1.9",
+      "door": "0.1.3",
       "app": "0.1.0",
       "protocol": 1,
       "result": "pending",
