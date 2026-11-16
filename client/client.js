@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-door',
   factory(require) {
     const React = require('react')
-    const { Button, Input, Tag } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { Button, Input } = require('@deepseek-ai/dsh-client-ui-primitives')
     const h = React.createElement
 
     const NS = 'dshDoorAdmin'
@@ -33,6 +33,15 @@ window.__ModuleLoader__.load({
 .dd-control{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .dd-block{display:flex;flex-direction:column;gap:8px;padding:16px 0;border-bottom:0.5px solid var(--dsw-alias-border-l3,rgba(127,127,127,.22))}
 .dd-code{font:600 20px ui-monospace,monospace;letter-spacing:3px;color:var(--dsw-alias-brand-primary,#3d7bfd)}
+.dd-segment{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}
+.dd-segmentButton{height:28px;padding:0 12px;border:0;border-radius:7px;background:transparent;color:var(--dsw-alias-label-tertiary,#888);font:inherit;font-size:13px;cursor:pointer}
+.dd-segmentButton.is-active{background:var(--dsw-alias-surface-primary,#fff);color:var(--dsw-alias-label-primary,#111);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.dd-countdown{font-size:12px;color:var(--dsw-alias-label-tertiary,#888);white-space:nowrap}
+.dd-modalBackdrop{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)}
+.dd-modal{display:flex;flex-direction:column;gap:12px;width:min(380px,90vw);padding:18px;border-radius:12px;background:var(--dsw-alias-surface-primary,#fff);box-shadow:0 12px 40px rgba(0,0,0,.28)}
+.dd-modalTitle{margin:0;font-size:16px;font-weight:600;color:var(--dsw-alias-label-primary,#111)}
+.dd-modalActions{display:flex;justify-content:flex-end;gap:8px}
+.dd-modalInput{width:100%}
 .dd-qr{font-size:10px;line-height:1;overflow:auto;margin:0;color:var(--dsw-alias-label-secondary);max-height:220px}
 .dd-qr-img{display:flex;justify-content:center;align-self:center;background:#fff;border-radius:8px;padding:8px}
 .dd-qr-img svg{width:220px;height:220px;display:block}
@@ -47,48 +56,52 @@ window.__ModuleLoader__.load({
     const zh = {
       nav: 'dsh-door',
       title: 'dsh-door 配对',
-      authed: '已通过 dsh 浏览器登录校验',
-      currentCode: '当前配对码',
-      rotation: '码的轮换',
-      rotate: '生成新的一次性码',
-      rotateHint: '生成新的一次性码，或恢复一次性轮换。',
-      restore: '恢复一次性码',
-      fixedCode: '固定配对码',
-      fixedHint: '固定码会一直有效，直到你恢复一次性码；只建议在可信网络使用。',
-      fixedPlaceholder: '例如 ABCD-EFGH',
-      setFixed: '设为固定码',
+      pairingCode: '配对码',
+      oneTimeMode: '一次性',
+      fixedMode: '永久性',
+      oneTimeHint: '一次性码过期后自动换新码',
+      fixedHint: '永久码不会过期；建议只在可信网络使用',
+      remaining: '剩余 {time}',
+      reset: '重置',
+      setPermanentTitle: '设置永久配对码',
+      setPermanentDesc: '输入 4 位数字，将作为永久配对码。',
+      passwordPlaceholder: '4 位数字',
+      passwordInvalid: '请输入 4 位数字',
+      confirm: '确定',
+      cancel: '取消',
+      resetTitle: '恢复为一次性配对码？',
+      resetDesc: '当前永久码会立即失效，并生成新的一次性码。',
       qrTitle: '扫码/输入',
       qrLoading: '二维码加载中…',
-      qrHint: 'App 目前使用数字码；二维码内容为',
+      qrHint: 'App 使用数字配对码；二维码内容为',
       devices: '已配对设备',
       device: '设备',
       pairedAt: '配对时间',
       lastSeen: '最近连接',
       noDevices: '还没有设备',
-      footer: '配对码默认 5 分钟有效。固定码会写入 dsh 凭据存储，重启后仍然有效。',
-      fixedExpiry: '固定码长期有效，直到你手动恢复一次性码',
-      fixedMode: '固定码',
-      oneTimeMode: '一次性码',
-      expiry: '过期时间：{time}',
+      footer: '一次性码默认 5 分钟有效。永久码会写入 dsh 凭据存储，重启后仍然有效。',
       codeLost: '登录已失效，请刷新 dsh Web UI',
       operationFailed: '操作失败',
-      enterFixed: '请输入固定码',
-      confirmFixed: '固定码会一直有效，确定设置？',
     }
 
     const en = {
       nav: 'dsh-door',
       title: 'dsh-door pairing',
-      authed: 'Authenticated with the dsh browser session',
-      currentCode: 'Current pairing code',
-      rotation: 'Code rotation',
-      rotate: 'Generate a new one-time code',
-      rotateHint: 'Generate a fresh one-time code, or restore one-time rotation.',
-      restore: 'Restore one-time rotation',
-      fixedCode: 'Fixed pairing code',
-      fixedHint: 'A fixed code stays valid until you restore one-time rotation. Use it only on a trusted network.',
-      fixedPlaceholder: 'e.g. ABCD-EFGH',
-      setFixed: 'Set fixed code',
+      pairingCode: 'Pairing code',
+      oneTimeMode: 'One-time',
+      fixedMode: 'Permanent',
+      oneTimeHint: 'A new code is generated when this one expires',
+      fixedHint: 'The permanent code never expires; use it only on a trusted network',
+      remaining: '{time} left',
+      reset: 'Reset',
+      setPermanentTitle: 'Set a permanent pairing code',
+      setPermanentDesc: 'Enter four digits to use as the permanent pairing code.',
+      passwordPlaceholder: 'Four digits',
+      passwordInvalid: 'Enter four digits',
+      confirm: 'Confirm',
+      cancel: 'Cancel',
+      resetTitle: 'Restore one-time pairing?',
+      resetDesc: 'The permanent code stops working immediately and a fresh one-time code is generated.',
       qrTitle: 'Scan or type',
       qrLoading: 'Loading QR…',
       qrHint: 'The app uses the numeric code; the QR payload is',
@@ -97,15 +110,9 @@ window.__ModuleLoader__.load({
       pairedAt: 'Paired',
       lastSeen: 'Last seen',
       noDevices: 'No devices yet',
-      footer: 'One-time codes expire after 5 minutes by default. A fixed code is stored in the dsh credential store and survives restarts.',
-      fixedExpiry: 'The fixed code stays valid until you restore one-time rotation',
-      fixedMode: 'Fixed code',
-      oneTimeMode: 'One-time code',
-      expiry: 'Expires: {time}',
+      footer: 'One-time codes expire after 5 minutes by default. A permanent code is stored in the dsh credential store and survives restarts.',
       codeLost: 'Session expired. Reload the dsh Web UI.',
       operationFailed: 'Operation failed',
-      enterFixed: 'Enter a fixed code',
-      confirmFixed: 'A fixed code stays valid until changed. Set it?',
     }
 
     function installStyles() {
@@ -128,7 +135,10 @@ window.__ModuleLoader__.load({
           const [data, setData] = React.useState(null)
           const [error, setError] = React.useState(null)
           const [busy, setBusy] = React.useState(false)
-          const [fixedCode, setFixedCode] = React.useState('')
+          const [now, setNow] = React.useState(Date.now())
+          const [dialog, setDialog] = React.useState(null)
+          const [password, setPassword] = React.useState('')
+          const [dialogError, setDialogError] = React.useState(null)
 
           React.useEffect(() => {
             let alive = true
@@ -153,108 +163,107 @@ window.__ModuleLoader__.load({
             }
           }, [t])
 
-          async function act(action) {
+          React.useEffect(() => {
+            const timer = setInterval(() => setNow(Date.now()), 1000)
+            return () => clearInterval(timer)
+          }, [])
+
+          async function perform(payload) {
             setBusy(true)
-            setError(null)
             try {
               const response = await fetch(BASE + '/admin/pair-code', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ action }),
+                body: JSON.stringify(payload),
               })
               if (!response.ok) {
                 const body = await response.json().catch(() => null)
                 throw new Error(body?.error?.message || t('operationFailed'))
               }
               setData(await response.json())
+              return null
             } catch (failure) {
-              setError(failure instanceof Error ? failure.message : String(failure))
+              return failure instanceof Error ? failure.message : String(failure)
             } finally {
               setBusy(false)
             }
           }
 
-          async function setFixed() {
-            const code = fixedCode.trim()
-            if (code.length === 0) {
-              setError(t('enterFixed'))
+          const fixed = data?.fixed === true
+          const remaining = !fixed && data ? Math.max(0, data.expiresAt - now) : null
+          const left = remaining === null
+            ? ''
+            : `${Math.floor(remaining / 60000)}:${String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0')}`
+
+          const openPermanent = () => {
+            setPassword('')
+            setDialogError(null)
+            setDialog('permanent')
+          }
+          const openReset = () => {
+            setDialogError(null)
+            setDialog('reset')
+          }
+          const confirmPermanent = async () => {
+            const code = password.trim()
+            if (!/^\d{4}$/.test(code)) {
+              setDialogError(t('passwordInvalid'))
               return
             }
-            if (!confirm(t('confirmFixed'))) return
-            setBusy(true)
-            setError(null)
-            try {
-              const response = await fetch(BASE + '/admin/pair-code', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ action: 'fixed', code }),
-              })
-              if (!response.ok) {
-                const body = await response.json().catch(() => null)
-                throw new Error(body?.error?.message || t('operationFailed'))
-              }
-              setData(await response.json())
-              setFixedCode('')
-            } catch (failure) {
-              setError(failure instanceof Error ? failure.message : String(failure))
-            } finally {
-              setBusy(false)
+            const failure = await perform({ action: 'fixed', code })
+            if (failure !== null) {
+              setDialogError(failure)
+              return
             }
+            setDialog(null)
+            setPassword('')
+          }
+          const confirmReset = async () => {
+            const failure = await perform({ action: 'auto' })
+            if (failure !== null) {
+              setDialogError(failure)
+              return
+            }
+            setDialog(null)
           }
 
           const devices = Array.isArray(data?.devices) ? data.devices : []
-          const expiry = data?.fixed
-            ? t('fixedExpiry')
-            : data
-              ? t('expiry', { time: new Date(data.expiresAt).toLocaleString() })
-              : ''
 
           return h('section', { className: 'dd-page' },
             h('header', { className: 'dd-head' },
-              h('h2', { className: 'dd-title' }, t('title')),
-              h('p', { className: 'dd-desc' }, t('authed')),
-            ),
+              h('h2', { className: 'dd-title' }, t('title'))),
             error === null ? null : h('p', { className: 'dd-error' }, error),
 
             h('div', { className: 'dd-row' },
               h('div', { className: 'dd-rowText' },
-                h('span', { className: 'dd-label' }, t('currentCode')),
-                h('span', { className: 'dd-desc' }, expiry),
+                h('span', { className: 'dd-label' }, t('pairingCode')),
+                h('span', { className: 'dd-desc' }, fixed ? t('fixedHint') : t('oneTimeHint')),
               ),
               h('div', { className: 'dd-control' },
+                h('div', { className: 'dd-segment' },
+                  h('button', {
+                    type: 'button',
+                    className: 'dd-segmentButton' + (fixed ? '' : ' is-active'),
+                    disabled: busy || data === null,
+                    onClick: () => { if (fixed) openReset() },
+                  }, t('oneTimeMode')),
+                  h('button', {
+                    type: 'button',
+                    className: 'dd-segmentButton' + (fixed ? ' is-active' : ''),
+                    disabled: busy || data === null,
+                    onClick: () => { if (!fixed) openPermanent() },
+                  }, t('fixedMode')),
+                ),
                 h('span', { className: 'dd-code' }, data?.formatted ?? '…'),
-                h(Tag, { tone: data?.fixed ? 'warning' : 'success' },
-                  data?.fixed ? t('fixedMode') : t('oneTimeMode')),
-              ),
-            ),
-
-            h('div', { className: 'dd-row' },
-              h('div', { className: 'dd-rowText' },
-                h('span', { className: 'dd-label' }, t('rotation')),
-                h('span', { className: 'dd-desc' }, t('rotateHint')),
-              ),
-              h('div', { className: 'dd-control' },
-                h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: () => { void act('rotate') } }, t('rotate')),
-                h(Button, { variant: 'outline', size: 'sm', disabled: busy, onClick: () => { void act('auto') } }, t('restore')),
-              ),
-            ),
-
-            h('div', { className: 'dd-row' },
-              h('div', { className: 'dd-rowText' },
-                h('span', { className: 'dd-label' }, t('fixedCode')),
-                h('span', { className: 'dd-desc' }, t('fixedHint')),
-              ),
-              h('div', { className: 'dd-control' },
-                h(Input, {
-                  className: 'dd-input',
-                  value: fixedCode,
-                  placeholder: t('fixedPlaceholder'),
-                  autoComplete: 'off',
-                  onChange: event => setFixedCode(event.target.value),
-                }),
-                h(Button, { variant: 'outline', size: 'sm', disabled: busy, onClick: () => { void setFixed() } }, t('setFixed')),
+                fixed
+                  ? h(Button, {
+                    variant: 'outline',
+                    size: 'sm',
+                    disabled: busy,
+                    onClick: openReset,
+                  }, t('reset'))
+                  : h('span', { className: 'dd-countdown' }, left.length > 0 ? t('remaining', { time: left }) : ''),
               ),
             ),
 
@@ -294,6 +303,44 @@ window.__ModuleLoader__.load({
             ),
 
             h('p', { className: 'dd-desc' }, t('footer')),
+
+            dialog === null ? null : h('div', {
+              className: 'dd-modalBackdrop',
+              onMouseDown: (event) => {
+                if (event.target === event.currentTarget) setDialog(null)
+              },
+            },
+            h('div', { className: 'dd-modal', role: 'dialog', 'aria-modal': 'true' },
+              h('h3', { className: 'dd-modalTitle' },
+                dialog === 'permanent' ? t('setPermanentTitle') : t('resetTitle')),
+              h('p', { className: 'dd-desc' },
+                dialog === 'permanent' ? t('setPermanentDesc') : t('resetDesc')),
+              dialog === 'permanent'
+                ? h(Input, {
+                  className: 'dd-modalInput',
+                  value: password,
+                  placeholder: t('passwordPlaceholder'),
+                  autoFocus: true,
+                  autoComplete: 'off',
+                  onChange: event => setPassword(event.target.value.replace(/\D/g, '').slice(0, 4)),
+                })
+                : null,
+              dialogError === null ? null : h('p', { className: 'dd-error' }, dialogError),
+              h('div', { className: 'dd-modalActions' },
+                h(Button, {
+                  variant: 'ghost',
+                  size: 'sm',
+                  disabled: busy,
+                  onClick: () => setDialog(null),
+                }, t('cancel')),
+                h(Button, {
+                  variant: 'primary',
+                  size: 'sm',
+                  disabled: busy,
+                  onClick: () => { void (dialog === 'permanent' ? confirmPermanent() : confirmReset()) },
+                }, t('confirm')),
+              ),
+            )),
           )
         }
 
