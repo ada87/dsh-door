@@ -318,6 +318,7 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | GET | `/speech` | Host speech Provider readiness; requires the experimental speech API bundle |
 | POST | `/speech/transcribe` | Transcribe one canonical base64 WAV without submitting a Session prompt |
 | GET | `/schedules` | Automation catalog; `available: false` when the profile has no schedule service |
+| GET | `/schedule-marks` | Active scheduled-task counts per Session, for the drawer clock mark |
 | GET | `/schedules/:id` | One task with target, last delivery and execution flags |
 | GET | `/schedules/:id/history?limit=20&before=` | Delivery history, newest first |
 | POST | `/schedules/:id/run` | Deliver one occurrence now without moving the schedule |

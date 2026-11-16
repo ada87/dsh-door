@@ -739,6 +739,12 @@ test('schedule routes expose detail, history and actions', async () => {
   const missing = await fetch(`${state.base}/schedules/missing`, { headers })
   assert.equal(missing.status, 404)
 
+  const marks = await fetch(`${state.base}/schedule-marks`, { headers })
+  assert.equal(marks.status, 200)
+  const marksBody = await marks.json() as { items: Array<{ sessionId: string; count: number }> }
+  assert.equal(marksBody.items[0]?.sessionId, sessionId)
+  assert.equal(marksBody.items[0]?.count, 1)
+
   const history = await fetch(`${state.base}/schedules/task-1/history?limit=5`, { headers })
   assert.equal(history.status, 200)
   const historyBody = await history.json() as { records: Array<{ targetSessionId: string }> }

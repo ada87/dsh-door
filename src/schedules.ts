@@ -6,6 +6,17 @@ export interface ScheduleListResponse {
   items: unknown[]
 }
 
+export interface SessionScheduleMarks {
+  items: Array<{ sessionId: string; count: number }>
+}
+
+interface CatalogTaskLike {
+  status?: unknown
+  target?: { kind?: unknown; sessionId?: unknown }
+  involvedSessionIds?: unknown
+  lastDelivery?: { targetSessionId?: unknown }
+}
+
 interface ScheduleServiceLike {
   catalog(): Promise<unknown>
   view?(request: { id: string }): Promise<unknown>
@@ -32,6 +43,46 @@ export async function listSchedules(ctx: HostContext, _signal: AbortSignal): Pro
 export function schedulesAvailable(ctx: HostContext): boolean {
   const service = getScheduleService(ctx)
   return service !== undefined && typeof service.catalog === 'function'
+}
+
+/**
+ * Active task counts per Session, for the drawer's clock mark.
+ *
+ * Mirrors dsh Web: a task counts when `status === 'active'` and it either
+ * targets the Session (`session` target or a `new` target's last delivery) or
+ * names it in `involvedSessionIds`.
+ */
+export async function sessionScheduleMarks(
+  ctx: HostContext,
+  _signal: AbortSignal,
+): Promise<SessionScheduleMarks> {
+  const service = getScheduleService(ctx)
+  if (service === undefined || typeof service.catalog !== 'function') return { items: [] }
+  try {
+    const catalog = await service.catalog()
+    if (!Array.isArray(catalog)) return { items: [] }
+    const counts = new Map<string, number>()
+    const add = (id: unknown): void => {
+      if (typeof id !== 'string' || id.length === 0) return
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+    }
+    for (const raw of catalog) {
+      if (typeof raw !== 'object' || raw === null) continue
+      const task = raw as CatalogTaskLike
+      if (task.status !== 'active') continue
+      const target = task.target
+      if (target?.kind === 'session') add(target.sessionId)
+      if (target?.kind === 'new') add(task.lastDelivery?.targetSessionId)
+      if (Array.isArray(task.involvedSessionIds)) {
+        for (const id of task.involvedSessionIds) add(id)
+      }
+    }
+    return {
+      items: [...counts.entries()].map(([sessionId, count]) => ({ sessionId, count })),
+    }
+  } catch {
+    return { items: [] }
+  }
 }
 
 export function scheduleActionsAvailable(ctx: HostContext): boolean {

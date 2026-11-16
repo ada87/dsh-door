@@ -48,6 +48,7 @@ import {
   scheduleHistory,
   scheduleHistoryAvailable,
   schedulesAvailable,
+  sessionScheduleMarks,
   viewSchedule,
 } from './schedules.js'
 import { speechCatalog, transcribeSpeech } from './speech.js'
@@ -343,6 +344,15 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     handler: async (rc) => {
       const result = await listSchedules(deps.ctx, rc.signal)
       sendJson(rc.res, 200, result)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/schedule-marks',
+    auth: 'device',
+    handler: async (rc) => {
+      sendJson(rc.res, 200, await sessionScheduleMarks(deps.ctx, rc.signal))
     },
   })
 
