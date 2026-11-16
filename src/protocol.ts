@@ -65,6 +65,8 @@ export interface HealthResponse extends ServerFacts {
     agentPresets: boolean
     /** Whether the Host exposes the LLM catalog for the model picker. */
     models: boolean
+    /** Whether the Host shares read watermarks across paired devices. */
+    readState: boolean
     /** Whether the Host exposes staged file/image uploads for the composer + button. */
     uploads: boolean
     sessionEvents: 'sse'

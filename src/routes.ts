@@ -25,6 +25,7 @@ import type { HttpRouter, RouteContext } from './http.js'
 import type { InteractionBroker } from './interactions.js'
 import type { PairingManager } from './pairing.js'
 import type { PushManager } from './push.js'
+import { parseReadState, type ReadStateStore } from './read-state.js'
 import type {
   ApprovalDecision,
   HealthResponse,
@@ -62,6 +63,7 @@ export interface RouteDependencies {
   hub: SseHub
   interactions: InteractionBroker
   push: PushManager
+  readState: ReadStateStore
   sessions: SessionFacade
   terminals: TerminalManager
   logger: {
@@ -553,6 +555,31 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     auth: 'device',
     handler: async (rc) => {
       sendJson(rc.res, 200, await modelCatalog(deps.ctx))
+    },
+  })
+
+  // Read watermarks are shared by every paired device, so marking a Session
+  // read on one phone clears the bold row on the others.
+  router.add({
+    method: 'GET',
+    pattern: '/read-state',
+    auth: 'device',
+    handler: (rc) => {
+      sendJson(rc.res, 200, { sessions: deps.readState.snapshot(), serverTime: Date.now() })
+    },
+  })
+
+  router.add({
+    method: 'POST',
+    pattern: '/read-state',
+    auth: 'device',
+    handler: async (rc) => {
+      const body = (rc.body ?? {}) as { sessions?: unknown }
+      const sessions = parseReadState(body.sessions)
+      if (sessions === undefined) {
+        throw new HttpError(400, 'bad-read-state', 'sessions must be an object of {readAt, unread, at}')
+      }
+      sendJson(rc.res, 200, { sessions: await deps.readState.merge(sessions), serverTime: Date.now() })
     },
   })
 
@@ -1162,6 +1189,7 @@ function features(deps: RouteDependencies): HealthResponse['features'] {
     agentPresets: agentPresetsAvailable(deps.ctx),
     models: modelsAvailable(deps.ctx),
     uploads: uploadsAvailable(deps.ctx),
+    readState: true,
     schedules: schedulesAvailable(deps.ctx),
     scheduleActions: scheduleActionsAvailable(deps.ctx),
     scheduleHistory: scheduleHistoryAvailable(deps.ctx),

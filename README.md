@@ -324,6 +324,8 @@ and `/pair`, every route requires `Authorization: Bearer <device token>`.
 | PUT | `/workspaces/:id` | Rename a workspace (`{ "title": string }`); duplicate titles are allowed, like dsh Web |
 | POST | `/sessions/:id/cancel` | Stop the current turn |
 | GET | `/sessions/:id/open` | Escape-hatch browser URL |
+| GET | `/read-state` | Shared read watermarks for every paired device |
+| POST | `/read-state` | Merge this device's watermarks (`{ "sessions": { id: { readAt, unread, at } } }`) and return the merged map |
 | GET | `/events` | Global SSE: approvals, questions, sessions, turn end |
 | GET | `/approvals` | Pending approvals (optional `preview`: command/diff/URL/path) |
 | POST | `/approvals/:id` | `allow` / `always` / `deny` |
@@ -337,7 +339,8 @@ A schedule delivery receipt acknowledges that the target Session persisted the
 message, not that the Agent finished or succeeded. Open the target Session for
 the actual result. `GET /health` advertises `schedules`, `scheduleActions` and
 `scheduleHistory` so older plugins can stay read-only; `workspaceRename` gates
-the phone's workspace rename entry.
+the phone's workspace rename entry, and `readState` tells the app that read
+watermarks are shared across paired devices.
 
 ### Approval policy
 

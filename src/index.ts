@@ -7,6 +7,7 @@ import type { HostContext } from './host.js'
 import { InteractionBroker } from './interactions.js'
 import { PairingManager } from './pairing.js'
 import { PushManager } from './push.js'
+import { ReadStateStore } from './read-state.js'
 import { registerRoutes } from './routes.js'
 import { createSessionFacade, readProjections } from './sessions.js'
 import { SseHub } from './streams.js'
@@ -49,6 +50,8 @@ export async function apply(ctx: HostContext, rawConfig?: Partial<PluginConfig>)
 
   const devices = new DeviceStore(host, credentials)
   await devices.load()
+  const readState = new ReadStateStore(credentials)
+  await readState.load()
 
   const hub = new SseHub()
   const hostOrigin = (host.webServer.getOrigin?.() ?? '').replace(/\/+$/, '')
@@ -93,6 +96,7 @@ export async function apply(ctx: HostContext, rawConfig?: Partial<PluginConfig>)
     hub,
     interactions,
     push,
+    readState,
     sessions,
     terminals,
     logger,
