@@ -5,8 +5,8 @@ not from this repository:
 
 - Source: `all-in-mobile/apps/app-dsh-door/market/site`
 - Build: `pnpm --dir apps/app-dsh-door site:build` → `market/site/dist`
-- Deploy: `pnpm --dir apps/app-dsh-door site:sync D:\xdnote\dsh-site-pages`
-- Pages repo: [`ada87/dsh-site`](https://github.com/ada87/dsh-site) (`gh-pages`, built files only)
+- Deploy: `pnpm --dir apps/app-dsh-door site:sync D:\xdnote\dsh-door-pages`
+- Pages branch: `gh-pages` in **this** repository ([`ada87/dsh-door`](https://github.com/ada87/dsh-door))
 - Domain: `https://dsh.xdnote.com` (`CNAME` lives in `market/site/static/`)
 - The `gh-pages` branch holds built files only; the source never lives there.
 
