@@ -1,7 +1,7 @@
 {
   "name": "dsh-door",
   "version": "0.1.6",
-  "description": "dsh-door: mobile BFF plugin for DeepSeek Harness - pairing, session reads, live events, approvals and questions over plain HTTP + SSE.",
+  "description": "Phone access for DeepSeek Harness: pair a device, browse sessions, reply, approve tool calls, and open terminals and files.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -20,11 +20,16 @@
   ],
   "keywords": [
     "dsh",
+    "dsh-plugin",
     "deepseek-harness",
-    "plugin",
     "mobile",
-    "door",
-    "dsh-plugin"
+    "remote",
+    "phone",
+    "android",
+    "ios",
+    "sessions",
+    "terminal",
+    "approvals"
   ],
   "license": "MIT",
   "author": "ada87",
