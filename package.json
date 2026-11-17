@@ -23,7 +23,8 @@
     "deepseek-harness",
     "plugin",
     "mobile",
-    "door"
+    "door",
+    "dsh-plugin"
   ],
   "license": "MIT",
   "author": "ada87",

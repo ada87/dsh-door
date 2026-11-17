@@ -1,0 +1,20 @@
+{
+  "plugin": "dsh-door",
+  "dshRange": ">=0.2.1-rc.4 <0.3.0",
+  "protocol": 1,
+  "appMin": "0.1.0",
+  "entries": [
+    {
+      "dsh": "0.2.2-rc.1",
+      "result": "pass",
+      "testedAt": "2026-11-16",
+      "notes": "Pairing, sessions, transcript, approvals, schedules, files, terminal."
+    },
+    {
+      "dsh": "0.2.2-rc.3",
+      "result": "pending",
+      "testedAt": null,
+      "notes": "Static API review only; runtime matrix pending."
+    }
+  ]
+}

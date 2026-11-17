@@ -64,6 +64,13 @@ from projections + list and always supplies the projection watermark as the cut,
 then fills the missing cursor with that cut. See `tests/compat.test.ts`. The
 floor will move to `>=0.2.2-0` when the 0.2.1 shims are removed.
 
+## Use
+
+- Open `dsh web` → **Settings → DSH Door** to read the pairing code and manage paired devices.
+- In the app, enter the Host URL and the four-digit code; the device stores its own bearer token.
+- The drawer lists sessions: open one to read, reply, approve tool calls, or open its terminal and files.
+- Push is optional; register an FCM/APNs token under Settings when a relay is configured.
+
 ## Upgrade
 
 Install from the npm registry (the default `dsh plugin add dsh-door`) so dsh can
@@ -478,3 +485,7 @@ The app repository also contains a recorded M1 curl walkthrough in
 - The browser escape hatch opens the Web root; dsh does not expose the launch
   token to plugins, so an already-authenticated browser session is required.
 
+
+## License
+
+MIT
