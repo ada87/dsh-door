@@ -1,10 +1,8 @@
 # DSH Door
 
 [![npm version](https://img.shields.io/npm/v/dsh-door?color=3d7bfd)](https://www.npmjs.com/package/dsh-door)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-door?color=3d7bfd)](https://www.npmjs.com/package/dsh-door)
 [![license](https://img.shields.io/npm/l/dsh-door?color=3d7bfd)](https://github.com/ada87/dsh-door/blob/main/LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-3d7bfd)](https://github.com/ada87/dsh-door/blob/main/docs/COMPATIBILITY.md)
-[![GitHub stars](https://img.shields.io/github/stars/ada87/dsh-door?color=3d7bfd&logo=github)](https://github.com/ada87/dsh-door)
 
 Non-official mobile BFF for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).
 It is a normal dsh plugin: it runs inside the Host process, calls the Host's own
@@ -505,7 +503,6 @@ The app repository also contains a recorded M1 curl walkthrough in
   (`assistant-stream` frames) are not rendered yet.
 - The browser escape hatch opens the Web root; dsh does not expose the launch
   token to plugins, so an already-authenticated browser session is required.
-
 
 ## License
 
