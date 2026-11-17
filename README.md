@@ -212,7 +212,9 @@ after a successful pairing and expire after `pairingTtlMs`.
 ## Pairing
 
 - The plugin generates a one-time code, prints it, and optionally prints a QR
-  payload (`{"v":1,"url":"http://host:port/dsh-door","code":"..."}`).
+  payload (`{"v":1,"url":"http://host:port/dsh-door","code":"..."}`). The
+  Settings-page QR uses the browser's base URL; the terminal QR uses the bind
+  origin.
 - The app sends the code plus a stable public-key fingerprint
   (`devicePublicKey`). The server stores a hash of the bearer token and pins the
   fingerprint as the device id.
@@ -450,9 +452,14 @@ replacement for the real waterfall; turn them off after testing.
     the bearer token is the boundary, so changing IP, port, or tunnel does not
     require re-pairing. Set `strictHostCheck: true` to bind requests to the
     authority allowlist instead.
-  - An attached `Origin` must match the request authority; cross-site browser
+  - An attached web `Origin` must match the request authority; cross-site web
     requests are refused (`403`).
-  - Native clients do not need CORS, so no CORS headers are ever sent.
+  - Installed browser-extension origins (`chrome-extension://`,
+    `moz-extension://`, `safari-web-extension://`) are accepted as paired
+    clients and receive scoped CORS headers plus `OPTIONS` preflight. The
+    device token or pairing code remains the authentication boundary. Web pages
+    still receive no CORS headers.
+  - Native clients do not need CORS; their requests are unchanged.
 - The pairing admin page uses dsh's own browser authentication
   (`ctx.connection.admit`) and only falls back to loopback; it is not an
   unauthenticated code-dump route.

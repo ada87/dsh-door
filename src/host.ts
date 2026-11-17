@@ -40,6 +40,13 @@ export interface WebRoute {
   kind: 'exact' | 'prefix'
   path: string
   handler: (req: HostRequest, res: HostResponse) => void | Promise<void>
+  /**
+   * dsh-door owns its Host/Origin fence and device-token authentication, so
+   * the route is explicitly anonymous at the Host layer. Without this the
+   * Host's default `required` policy would demand a dsh browser Peer that a
+   * native client or extension does not have.
+   */
+  auth?: 'anonymous'
 }
 
 export interface WebServerService {

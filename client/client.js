@@ -20,6 +20,16 @@ window.__ModuleLoader__.load({
     const BASE = typeof injected?.basePath === 'string' && injected.basePath.length > 0
       ? injected.basePath.replace(/\/$/, '')
       : '/dsh-door'
+    // The Settings page knows the address it was loaded from; the Host's bind
+    // address does not. Send it with every admin request so the QR follows the
+    // public/actual URL, including behind a NAT.
+    const adminBaseQuery = () => {
+      try {
+        return '?base=' + encodeURIComponent(new URL('.', location.href).href)
+      } catch {
+        return ''
+      }
+    }
 
     const styles = `
 .dd-page{display:flex;flex-direction:column;width:100%;gap:0}
@@ -203,7 +213,10 @@ window.__ModuleLoader__.load({
             let alive = true
             async function load() {
               try {
-                const response = await fetch(BASE + '/admin/data', { credentials: 'same-origin', cache: 'no-store' })
+                // Use the address the admin page is actually loaded from, not
+                // the Host's bind address. This keeps the Settings QR usable on
+                // a NATed cloud Host even when --public-url is not set.
+                const response = await fetch(BASE + '/admin/data' + adminBaseQuery(), { credentials: 'same-origin', cache: 'no-store' })
                 if (!response.ok) throw new Error(t('codeLost'))
                 const next = await response.json()
                 if (alive) {
@@ -230,7 +243,7 @@ window.__ModuleLoader__.load({
           async function perform(payload) {
             setBusy(true)
             try {
-              const response = await fetch(BASE + '/admin/pair-code', {
+              const response = await fetch(BASE + '/admin/pair-code' + adminBaseQuery(), {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
@@ -293,7 +306,7 @@ window.__ModuleLoader__.load({
             setBusyDevice(device.deviceId)
             setError(null)
             try {
-              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(device.deviceId), {
+              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(device.deviceId) + adminBaseQuery(), {
                 method: 'DELETE',
                 credentials: 'same-origin',
               })
@@ -326,7 +339,7 @@ window.__ModuleLoader__.load({
             setRenameError(null)
             setError(null)
             try {
-              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(renameTarget.deviceId), {
+              const response = await fetch(BASE + '/admin/devices/' + encodeURIComponent(renameTarget.deviceId) + adminBaseQuery(), {
                 method: 'PUT',
                 credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },

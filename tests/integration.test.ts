@@ -530,6 +530,48 @@ test('Host and Origin fences reject foreign authorities', async () => {
   assert.equal(origin.status, 403)
 })
 
+test('extension origins pair and call device routes with CORS', async () => {
+  const extensionOrigin = 'chrome-extension://abcdefghijklmnop'
+
+  const health = await fetch(`${state.base}/health`, { headers: { origin: extensionOrigin } })
+  assert.equal(health.status, 200)
+  assert.equal(health.headers.get('access-control-allow-origin'), extensionOrigin)
+  assert.equal(health.headers.get('vary'), 'Origin')
+
+  const preflight = await fetch(`${state.base}/sessions`, {
+    method: 'OPTIONS',
+    headers: {
+      origin: extensionOrigin,
+      'access-control-request-method': 'GET',
+      'access-control-request-headers': 'authorization',
+    },
+  })
+  assert.equal(preflight.status, 204)
+  assert.equal(preflight.headers.get('access-control-allow-origin'), extensionOrigin)
+  assert.match(preflight.headers.get('access-control-allow-headers') ?? '', /authorization/)
+
+  const sessions = await fetch(`${state.base}/sessions`, {
+    headers: { authorization: `Bearer ${state.token}`, origin: extensionOrigin },
+  })
+  assert.equal(sessions.status, 200)
+  assert.equal(sessions.headers.get('access-control-allow-origin'), extensionOrigin)
+
+  const foreign = await fetch(`${state.base}/sessions`, {
+    headers: { authorization: `Bearer ${state.token}`, origin: 'https://evil.example' },
+  })
+  assert.equal(foreign.status, 403)
+  assert.equal(foreign.headers.get('access-control-allow-origin'), null)
+})
+
+test('the admin QR follows the browser base', async () => {
+  const browserBase = 'http://203.0.113.10:3080/'
+  const admin = await fetch(`${state.base}/admin/data?base=${encodeURIComponent(browserBase)}`)
+  const adminBody = await admin.json() as { origin: string; qr: string; basePath: string }
+  assert.equal(adminBody.origin, 'http://203.0.113.10:3080')
+  assert.equal(adminBody.basePath, '/dsh-door')
+  assert.ok(adminBody.qr.length > 0)
+})
+
 test('a live browser wins: the approval listener delegates with next()', async () => {
   state.ctx.browserLive = true
   let nextCalled = false

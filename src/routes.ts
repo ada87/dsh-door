@@ -82,7 +82,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     pattern: '/health',
     auth: 'public',
     handler: (rc) => {
-      const facts = serverFacts(deps)
+      const facts = serverFacts(deps, requestOrigin(deps, rc))
       const response: HealthResponse = {
         ok: true,
         ...facts,
@@ -102,7 +102,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     auth: 'public',
     handler: async (rc) => {
       if (!adminAuthorized(deps, rc)) throw new HttpError(401, 'admin-unauthorized', 'open this page from an authenticated dsh browser')
-      sendJson(rc.res, 200, await adminData(deps))
+      sendJson(rc.res, 200, await adminData(deps, requestBase(rc) ?? requestOrigin(deps, rc) ?? ''))
     },
   })
 
@@ -127,7 +127,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         if (error instanceof HttpError) throw error
         throw new HttpError(400, 'bad-code', error instanceof Error ? error.message : String(error))
       }
-      sendJson(rc.res, 200, await adminData(deps))
+      sendJson(rc.res, 200, await adminData(deps, requestBase(rc) ?? requestOrigin(deps, rc) ?? ''))
     },
   })
 
@@ -140,7 +140,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
       const removed = await deps.devices.revoke(rc.params.id!)
       if (!removed) throw new HttpError(404, 'device-not-found', 'no such device')
       deps.hub.closeDevice(rc.params.id!)
-      sendJson(rc.res, 200, await adminData(deps))
+      sendJson(rc.res, 200, await adminData(deps, requestBase(rc) ?? requestOrigin(deps, rc) ?? ''))
     },
   })
 
@@ -155,7 +155,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
       if (name.length === 0) throw new HttpError(400, 'bad-device-name', 'a non-empty device name is required')
       const renamed = await deps.devices.rename(rc.params.id!, name)
       if (!renamed) throw new HttpError(404, 'device-not-found', 'no such device')
-      sendJson(rc.res, 200, await adminData(deps))
+      sendJson(rc.res, 200, await adminData(deps, requestBase(rc) ?? requestOrigin(deps, rc) ?? ''))
     },
   })
 
@@ -166,7 +166,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     handler: (rc) => {
       const status = deps.pairing.status()
       sendJson(rc.res, 200, {
-        server: serverFacts(deps),
+        server: serverFacts(deps, requestOrigin(deps, rc)),
         features: features(deps),
         pairing: { open: status.pairingOpen },
       })
@@ -180,7 +180,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     handler: async (rc) => {
       assertLoopback(rc)
       const current = deps.pairing.current()
-      const origin = serverFacts(deps).origin ?? ''
+      const origin = serverFacts(deps, requestOrigin(deps, rc)).origin ?? ''
       const payload = JSON.stringify({
         v: 1,
         url: `${origin}${config.basePath}`,
@@ -242,7 +242,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         token,
         deviceName: device.deviceName,
         pairedAt: device.pairedAt,
-        server: serverFacts(deps),
+        server: serverFacts(deps, requestOrigin(deps, rc)),
         features: features(deps),
       }
       deps.logger.info(`[dsh-door] paired device "${device.deviceName}" (${device.deviceId.slice(0, 12)}…) from ${rc.clientAddress}`)
@@ -845,11 +845,10 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
     pattern: '/sessions/:id/open',
     auth: 'device',
     handler: (rc) => {
-      const facts = serverFacts(deps)
-      // Prefer the authority this request actually reached. `getOrigin()` is
-      // the Host's bind address, which is often a LAN/Tailscale IP that the
-      // phone cannot open in its browser.
-      const base = `${facts.protocolName}://${rc.authority}`
+      // Use the authority this request actually reached. `getOrigin()` is the
+      // Host's bind address, which is often a private IP that the phone cannot
+      // open in its browser.
+      const base = requestOrigin(deps, rc) ?? serverFacts(deps).origin ?? `${serverFacts(deps).protocolName}://${rc.authority}`
       sendJson(rc.res, 200, {
         url: `${base}/`,
         sessionId: rc.params.id!,
@@ -1031,7 +1030,7 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
       const clientId = newId()
       deps.hub.add(clientId, rc.device!.deviceId, rc.res)
       writeSse(rc.res, 'hello', {
-        server: serverFacts(deps),
+        server: serverFacts(deps, requestOrigin(deps, rc)),
         features: features(deps),
         pendingApprovals: deps.interactions.listApprovals(),
         pendingQuestions: deps.interactions.listQuestions(),
@@ -1150,14 +1149,15 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
   )
 }
 
-function serverFacts(deps: RouteDependencies): ServerFacts {
+function serverFacts(deps: RouteDependencies, originOverride?: string | null): ServerFacts {
   const web = deps.ctx.webServer
-  let origin: string | null = null
+  let fallback: string | null = null
   try {
-    origin = typeof web.getOrigin === 'function' ? web.getOrigin() : null
+    fallback = typeof web.getOrigin === 'function' ? web.getOrigin() : null
   } catch {
-    origin = null
+    fallback = null
   }
+  const origin = originOverride ?? fallback
   return {
     name: 'dsh-door',
     version: deps.pluginVersion,
@@ -1165,10 +1165,17 @@ function serverFacts(deps: RouteDependencies): ServerFacts {
     dshVersion: deps.version.version,
     dshCompatible: deps.version.compatible,
     origin,
-    protocolName: web.protocol === 'https:' ? 'https' : 'http',
+    protocolName: origin !== null && origin.startsWith('https://') ? 'https' : web.protocol === 'https:' ? 'https' : 'http',
     host: web.host ?? null,
     port: web.port ?? null,
   }
+}
+
+/** `scheme://authority` as the client reached this request, or null when unknown. */
+function requestOrigin(deps: RouteDependencies, rc: RouteContext): string | null {
+  if (rc.authority.length === 0) return null
+  const scheme = deps.ctx.webServer.protocol === 'https:' ? 'https' : 'http'
+  return `${scheme}://${rc.authority}`
 }
 
 function scheduleCode(result: unknown): string | undefined {
@@ -1260,9 +1267,9 @@ function adminAuthorized(deps: RouteDependencies, rc: RouteContext): boolean {
   return rc.clientAddress === '127.0.0.1' || rc.clientAddress === '::1' || rc.clientAddress.startsWith('127.')
 }
 
-async function adminData(deps: RouteDependencies): Promise<Record<string, unknown>> {
+async function adminData(deps: RouteDependencies, originBase: string): Promise<Record<string, unknown>> {
   const view = deps.pairing.current()
-  const origin = serverFacts(deps).origin ?? ''
+  const origin = originBase
   const payload = JSON.stringify({ v: 1, url: `${origin}${deps.config.basePath}`, code: view.code })
   const qr = await renderQr(payload)
   const qrSvg = await renderQrSvg(payload)
@@ -1286,6 +1293,25 @@ async function adminData(deps: RouteDependencies): Promise<Record<string, unknow
       lastSeenAt: device.lastSeenAt,
       push: device.push !== undefined,
     })),
+  }
+}
+
+/**
+ * The admin page sends the base directory it was loaded from (`new URL('.',
+ * location.href)`). It is the URL the user is actually using, so the Settings
+ * QR follows the public URL without any Host-side public-URL configuration.
+ * A loopback page yields a loopback QR; the phone can edit the address.
+ */
+function requestBase(rc: RouteContext): string | null {
+  const value = rc.query.get('base')
+  if (value === null || value.length === 0 || value.length > 2048) return null
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') return null
+    return `${url.origin}${url.pathname.replace(/\/+$/, '')}`
+  } catch {
+    return null
   }
 }
 

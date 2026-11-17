@@ -80,6 +80,7 @@ export class HttpRouter {
     return {
       kind: 'prefix',
       path: this.config.basePath,
+      auth: 'anonymous',
       handler: (req, res) => this.handle(req, res),
     }
   }
@@ -94,7 +95,14 @@ export class HttpRouter {
       const clientAddress = normalizeAddress(req.socket?.remoteAddress)
       const authority = header(req, 'host')?.toLowerCase() ?? ''
       const origin = header(req, 'origin')
-      if (origin !== undefined && !sameOrigin(origin, authority)) {
+      const extensionOrigin = origin !== undefined && isExtensionOrigin(origin)
+      if (extensionOrigin) this.applyCors(res, origin)
+      if (extensionOrigin && (req.method ?? 'GET').toUpperCase() === 'OPTIONS') {
+        res.writeHead(204)
+        res.end()
+        return
+      }
+      if (origin !== undefined && !sameOrigin(origin, authority) && !extensionOrigin) {
         throw new HttpError(403, 'origin-refused', 'cross-origin requests are not accepted')
       }
       const pathname = normalizePath(url.pathname.slice(this.config.basePath.length) || '/')
@@ -183,6 +191,21 @@ export class HttpRouter {
       if (params !== undefined) return { route, params }
     }
     return undefined
+  }
+
+  /**
+   * Browser extensions are installed clients, not web pages: their
+   * `chrome-extension://` origin can never be a DNS-rebinding or cross-site
+   * target. The device token (or the one-time pairing code) remains the
+   * authentication boundary. Echo only the extension's own origin; web
+   * origins still receive no CORS headers.
+   */
+  private applyCors(res: HostResponse, origin: string): void {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Max-Age', '600')
   }
 
   private authenticate(req: HostRequest): DeviceView | undefined {
@@ -351,6 +374,13 @@ function authorityHostname(authority: string): string {
   }
   const colon = authority.lastIndexOf(':')
   return colon === -1 ? authority : authority.slice(0, colon)
+}
+
+/** Installed-extension origins; the bearer token or pairing code still gates every route. */
+function isExtensionOrigin(origin: string): boolean {
+  return origin.startsWith('chrome-extension://')
+    || origin.startsWith('moz-extension://')
+    || origin.startsWith('safari-web-extension://')
 }
 
 function sameOrigin(origin: string, authority: string): boolean {
