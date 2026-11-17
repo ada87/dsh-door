@@ -18,7 +18,7 @@ import {
 } from './catalogs.js'
 import type { Config } from './config.js'
 import type { DeviceStore } from './devices.js'
-import { listWorkspaceFiles, readWorkspaceFile } from './files.js'
+import { listWorkspaceFiles, listWorkspaceFilesByWorkspace, readWorkspaceFile, readWorkspaceFileByWorkspace } from './files.js'
 import type { HostContext } from './host.js'
 import { HttpError, markStreaming, sendJson, sendNoContent, startSse, writeSse } from './http.js'
 import type { HttpRouter, RouteContext } from './http.js'
@@ -489,6 +489,34 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         ...(typeof body.agentPreset === 'string' && body.agentPreset.length > 0 ? { agentPreset: body.agentPreset } : {}),
       })
       sendJson(rc.res, 201, created)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/workspaces/:id/files',
+    auth: 'device',
+    handler: async (rc) => {
+      const response = await listWorkspaceFilesByWorkspace(
+        deps.ctx,
+        rc.params.id!,
+        rc.query.get('path') ?? '',
+        rc.signal,
+      )
+      sendJson(rc.res, 200, response)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/workspaces/:id/file',
+    auth: 'device',
+    handler: async (rc) => {
+      const path = rc.query.get('path')
+      if (path === null || path.length === 0) throw new HttpError(400, 'empty-path', 'path is required')
+      const offset = numberParam(rc.query.get('offset')) ?? 0
+      const response = await readWorkspaceFileByWorkspace(deps.ctx, rc.params.id!, path, rc.signal, offset)
+      sendJson(rc.res, 200, response)
     },
   })
 
