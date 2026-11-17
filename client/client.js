@@ -73,8 +73,8 @@ window.__ModuleLoader__.load({
 `
 
     const zh = {
-      nav: 'dsh-door',
-      title: 'dsh-door 配对',
+      nav: 'DSH Door',
+      title: 'DSH Door',
       pairingCode: '配对码',
       oneTimeMode: '一次性',
       fixedMode: '永久性',
@@ -114,8 +114,8 @@ window.__ModuleLoader__.load({
     }
 
     const en = {
-      nav: 'dsh-door',
-      title: 'dsh-door pairing',
+      nav: 'DSH Door',
+      title: 'DSH Door',
       pairingCode: 'Pairing code',
       oneTimeMode: 'One-time',
       fixedMode: 'Permanent',

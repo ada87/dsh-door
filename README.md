@@ -1,4 +1,10 @@
-# dsh-door
+# DSH Door
+
+[![npm version](https://img.shields.io/npm/v/dsh-door?color=3d7bfd)](https://www.npmjs.com/package/dsh-door)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-door?color=3d7bfd)](https://www.npmjs.com/package/dsh-door)
+[![license](https://img.shields.io/npm/l/dsh-door?color=3d7bfd)](https://github.com/ada87/dsh-door/blob/main/LICENSE)
+[![dsh](https://img.shields.io/badge/dsh-0.2.x-3d7bfd)](https://github.com/ada87/dsh-door/blob/main/docs/COMPATIBILITY.md)
+[![GitHub stars](https://img.shields.io/github/stars/ada87/dsh-door?color=3d7bfd&logo=github)](https://github.com/ada87/dsh-door)
 
 Non-official mobile BFF for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).
 It is a normal dsh plugin: it runs inside the Host process, calls the Host's own
@@ -7,14 +13,18 @@ Cordis services, and speaks a small JSON + SSE protocol to the React Native app.
 It does **not** use Typert Remote, does **not** fork dsh, and does **not** put a
 relay server between the user's phone and the user's Host.
 
-## Why a plugin
+## Features
 
-The official browser client uses generated Typert codecs and `/api/remote.mux`.
-Those artifacts are browser bundles, and dsh's `/api` route sits behind a
-Host/Origin fence and browser cookies. A native app cannot consume either
-cleanly. This plugin registers its own routes on the same `webServer`, authenticates
-devices with its own bearer token, and uses the Host's own
-`sessionController` / `approval` / `userQuestions` services.
+- **The session list, everywhere.** Open the drawer to read every session with tags, unread weight and live status.
+- **Reply without opening a laptop.** Send a prompt, queue it behind the current turn, or steer mid-turn.
+- **Approve tool calls from the phone.** Allow, always-allow or deny; answer the agent's structured questions.
+- **Terminal and files.** Open a real PTY for the session, leave it running in the background, and browse the workspace.
+- **Push when you leave.** Optional FCM/APNs notifications for turn end, approvals and questions.
+- **One token per device.** Pair once; revoke any device from Settings at any time.
+
+| Phone | Tablet |
+|---|---|
+| ![Session drawer on a phone](https://raw.githubusercontent.com/ada87/dsh-door/main/docs/images/phone-drawer.png) | ![Session list and chat side by side on a tablet](https://raw.githubusercontent.com/ada87/dsh-door/main/docs/images/tablet-split.png) |
 
 ## Install
 
@@ -27,7 +37,7 @@ From a checkout or a packed tarball:
 dsh plugin --profile web add /path/to/dsh-door
 # or
 pnpm pack
-dsh plugin --profile web add ./dsh-door-0.1.1.tgz
+dsh plugin --profile web add ./dsh-door-<version>.tgz
 ```
 
 Restart `dsh web`. The terminal prints:
@@ -40,6 +50,8 @@ Restart `dsh web`. The terminal prints:
 
 The code has a five-minute TTL by default. After a successful pairing it rotates;
 the terminal prints the next one.
+
+### Pairing and compatibility
 
 The generated pairing code is **four digits** (`1234`). It is one-time, expires
 after `pairingTtlMs`, and each client address gets `pairingMaxAttempts` (8)
@@ -64,12 +76,21 @@ from projections + list and always supplies the projection watermark as the cut,
 then fills the missing cursor with that cut. See `tests/compat.test.ts`. The
 floor will move to `>=0.2.2-0` when the 0.2.1 shims are removed.
 
-## Use
+## Usage
 
 - Open `dsh web` → **Settings → DSH Door** to read the pairing code and manage paired devices.
 - In the app, enter the Host URL and the four-digit code; the device stores its own bearer token.
 - The drawer lists sessions: open one to read, reply, approve tool calls, or open its terminal and files.
 - Push is optional; register an FCM/APNs token under Settings when a relay is configured.
+
+## Why a plugin
+
+The official browser client uses generated Typert codecs and `/api/remote.mux`.
+Those artifacts are browser bundles, and dsh's `/api` route sits behind a
+Host/Origin fence and browser cookies. A native app cannot consume either
+cleanly. This plugin registers its own routes on the same `webServer`, authenticates
+devices with its own bearer token, and uses the Host's own
+`sessionController` / `approval` / `userQuestions` services.
 
 ## Upgrade
 
