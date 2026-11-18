@@ -1,3 +1,4 @@
+import { open } from 'node:fs/promises'
 import {
   agentPresetsAvailable,
   createWorkspace,
@@ -18,7 +19,7 @@ import {
 } from './catalogs.js'
 import type { Config } from './config.js'
 import type { DeviceStore } from './devices.js'
-import { listWorkspaceFiles, listWorkspaceFilesByWorkspace, readWorkspaceFile, readWorkspaceFileByWorkspace } from './files.js'
+import { listWorkspaceFiles, listWorkspaceFilesByWorkspace, readWorkspaceFile, readWorkspaceFileByWorkspace, resolveWorkspaceBinary } from './files.js'
 import type { HostContext } from './host.js'
 import { HttpError, markStreaming, sendJson, sendNoContent, startSse, writeSse } from './http.js'
 import type { HttpRouter, RouteContext } from './http.js'
@@ -489,6 +490,30 @@ export function registerRoutes(router: HttpRouter, deps: RouteDependencies): voi
         ...(typeof body.agentPreset === 'string' && body.agentPreset.length > 0 ? { agentPreset: body.agentPreset } : {}),
       })
       sendJson(rc.res, 201, created)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/workspaces/:id/raw',
+    auth: 'device',
+    handler: async (rc) => {
+      const path = rc.query.get('path')
+      if (path === null || path.length === 0) throw new HttpError(400, 'empty-path', 'path is required')
+      const file = await resolveWorkspaceBinary(deps.ctx, { workspaceId: rc.params.id! }, path, rc.signal)
+      await sendBinary(rc, file)
+    },
+  })
+
+  router.add({
+    method: 'GET',
+    pattern: '/sessions/:id/raw',
+    auth: 'device',
+    handler: async (rc) => {
+      const path = rc.query.get('path')
+      if (path === null || path.length === 0) throw new HttpError(400, 'empty-path', 'path is required')
+      const file = await resolveWorkspaceBinary(deps.ctx, { sessionId: rc.params.id! }, path, rc.signal)
+      await sendBinary(rc, file)
     },
   })
 
@@ -1315,6 +1340,33 @@ async function adminData(deps: RouteDependencies): Promise<Record<string, unknow
       push: device.push !== undefined,
     })),
   }
+}
+
+async function sendBinary(rc: RouteContext, file: { filename: string; size: number; contentType: string }): Promise<void> {
+  const offset = numberParam(rc.query.get('offset')) ?? 0
+  const limit = Math.min(Math.max(numberParam(rc.query.get('limit')) ?? 512 * 1024, 1), 2 * 1024 * 1024)
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size) {
+    throw new HttpError(400, 'invalid-offset', 'offset must be a byte position inside the file')
+  }
+  const length = Math.min(limit, file.size - offset)
+  const buffer = Buffer.alloc(length)
+  const handle = await open(file.filename, 'r')
+  let bytesRead = 0
+  try {
+    if (length > 0) ({ bytesRead } = await handle.read(buffer, 0, length, offset))
+  } finally {
+    await handle.close()
+  }
+  const chunk = buffer.subarray(0, bytesRead)
+  sendJson(rc.res, 200, {
+    path: rc.query.get('path') ?? '',
+    size: file.size,
+    offset,
+    bytes: bytesRead,
+    contentType: file.contentType,
+    nextOffset: offset + bytesRead < file.size ? offset + bytesRead : undefined,
+    dataBase64: chunk.toString('base64'),
+  })
 }
 
 async function renderQr(text: string): Promise<string | null> {

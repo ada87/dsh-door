@@ -1,6 +1,6 @@
 {
   "name": "dsh-door",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Phone access for DeepSeek Harness: pair a device, browse sessions, reply, approve tool calls, and open terminals and files.",
   "type": "module",
   "main": "lib/index.js",

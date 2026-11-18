@@ -153,6 +153,46 @@ function trimIncompleteUtf8(bytes: Buffer): Buffer {
   return length - start < expected ? bytes.subarray(0, start) : bytes
 }
 
+/** Resolve one file for binary download (documents, images) without reading it as text. */
+export async function resolveWorkspaceBinary(
+  ctx: HostContext,
+  scope: { workspaceId?: string; sessionId?: string },
+  requestedPath: string,
+  signal: AbortSignal,
+): Promise<{ filename: string; size: number; contentType: string }> {
+  const root = scope.workspaceId !== undefined
+    ? await workspaceRootById(ctx, scope.workspaceId)
+    : await workspaceRoot(ctx, scope.sessionId ?? '', signal)
+  const filename = await confinedRealPath(root.rootReal, requestedPath)
+  const info = await stat(filename)
+  if (!info.isFile()) throw new HttpError(400, 'not-a-file', 'the requested path is not a regular file')
+  return { filename, size: info.size, contentType: contentTypeFor(filename) }
+}
+
+const MIME_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  rtf: 'application/rtf',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
+  xlsm: 'application/vnd.ms-excel.sheet.macroEnabled.12',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  csv: 'text/csv',
+  tsv: 'text/tab-separated-values',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+}
+
+function contentTypeFor(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase()
+  return MIME_TYPES[ext] ?? 'application/octet-stream'
+}
+
 async function workspaceRoot(ctx: HostContext, sessionId: string, signal: AbortSignal): Promise<{ root: string; rootReal: string }> {
   const list = await ctx.sessionController.list({}, signal)
   const session = list.items.find(item => item.sessionId === sessionId)
