@@ -4,6 +4,11 @@
 [![license](https://img.shields.io/npm/l/dsh-door?color=3d7bfd)](https://github.com/ada87/dsh-door/blob/main/LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-3d7bfd)](https://github.com/ada87/dsh-door/blob/main/docs/COMPATIBILITY.md)
 
+> **Moved:** this plugin now lives in [`ada87/dsh-hello`](https://github.com/ada87/dsh-hello)
+> under its product name **DSH Hello**. Releases, documentation and issues belong
+> there; install `dsh-hello` instead of `dsh-door`. The marketing site moved to
+> <https://dsh.xdnote.com>. This repository is kept for history.
+
 Non-official mobile BFF for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).
 It is a normal dsh plugin: it runs inside the Host process, calls the Host's own
 Cordis services, and speaks a small JSON + SSE protocol to the React Native app.
